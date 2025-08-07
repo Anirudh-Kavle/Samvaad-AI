@@ -1,14 +1,15 @@
-# api.py
-
-from fastapi import FastAPI, HTTPException, Depends
+# ==== UPDATED api.py ====
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import uuid
-from typing import Dict
+from typing import Dict, Any
 import logging
+import asyncio
+from contextlib import asynccontextmanager
 
 # Import database and service components
-from database import get_db
+from database import get_db, init_db, test_connection
 from sqlalchemy.orm import Session
 from services import create_debate_session, get_debate_session
 from models import (
@@ -16,19 +17,49 @@ from models import (
     DebateInfoResponse, 
     CouncilMemberInfo, 
     ChatHistoryResponse,
-    UserMessageRequest # Make sure this is imported
+    ChatMessage,  # Add this import
+    UserMessageRequest
 )
-# Import CouncilChamberManager
 from council_chamber_manager import CouncilChamberManager
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# In-memory store for active debates
+active_debates: Dict[str, CouncilChamberManager] = {}
+
+# --- Database Initialization ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("🏛️ CouncilChamber API starting up...")
+    
+    # Test database connection
+    if not test_connection():
+        logger.error("❌ Database connection failed. Please check your DATABASE_URL.")
+        raise RuntimeError("Database connection failed")
+    
+    # Initialize database tables
+    try:
+        init_db()
+        logger.info("✅ Database initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
+        raise RuntimeError(f"Database initialization failed: {e}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🏛️ CouncilChamber API shutting down...")
+    # Clean up active debates
+    active_debates.clear()
+
 app = FastAPI(
     title="CouncilChamber API",
     description="API for the CouncilChamber - Character Debate Simulator",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # Configure CORS
@@ -39,9 +70,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# In-memory store for active debates
-active_debates: Dict[str, CouncilChamberManager] = {}
 
 # --- Helper Functions ---
 def _convert_manager_to_response_with_session(manager: CouncilChamberManager, session_id: str) -> DebateInfoResponse:
@@ -54,7 +82,7 @@ def _convert_manager_to_response_with_session(manager: CouncilChamberManager, se
         user_name=manager.user_name,
         topic=manager.topic,
         council_members=council_members_info,
-        message=f"🏛️ Council '{manager.topic}' is ready. Call /run to start the conversation."
+        message=f"🏛️ Council '{manager.topic}' is ready. Debate started in background."
     )
 
 # --- API Endpoints ---
@@ -64,12 +92,9 @@ async def root():
     return {"message": "🏛️ Welcome to the CouncilChamber API!"}
 
 @app.post("/debates/start/", response_model=DebateInfoResponse, status_code=201)
-async def start_debate(debate_request: DebateSetupRequest, db: Session = Depends(get_db)):
+async def start_debate(debate_request: DebateSetupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
-    1. Sets up a new CouncilChamber debate session.
-    2. Saves the session to the database.
-    3. Initializes the CouncilChamberManager (in memory).
-    4. Returns session info. Client must call /run to start the actual chat.
+    Sets up a new CouncilChamber debate session and starts it in the background.
     """
     logger.info(f"Setting up debate for user '{debate_request.user_name}' on topic '{debate_request.topic}'")
     
@@ -91,6 +116,7 @@ async def start_debate(debate_request: DebateSetupRequest, db: Session = Depends
 
         # 2. Create the CouncilChamberManager instance (in-memory)
         chamber_manager = CouncilChamberManager(
+            session_id=session_id,
             user_name=debate_request.user_name,
             character_names=debate_request.character_names,
             topic=debate_request.topic
@@ -99,7 +125,11 @@ async def start_debate(debate_request: DebateSetupRequest, db: Session = Depends
         # 3. Store the manager instance in memory
         active_debates[session_id] = chamber_manager
         
-        # 4. Return the setup information
+        # 4. Start debate in background
+        background_tasks.add_task(chamber_manager.start_debate_background_task)
+        logger.info(f"Background debate task scheduled for session {session_id}")
+        
+        # 5. Return the setup information
         response_data = _convert_manager_to_response_with_session(chamber_manager, session_id)
         logger.info(f"Debate API session {session_id} setup successfully.")
         return response_data
@@ -108,15 +138,11 @@ async def start_debate(debate_request: DebateSetupRequest, db: Session = Depends
         logger.error(f"Failed to setup debate session: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error while setting up debate: {str(e)}")
 
-
-@app.post("/debates/{session_id}/run/")
-async def run_debate(session_id: str, db: Session = Depends(get_db)):
+@app.get("/debates/{session_id}/status/")
+async def get_debate_status(session_id: str, db: Session = Depends(get_db)):
     """
-    2. Starts the actual debate conversation.
-    This endpoint IS BLOCKING and will run the autogen chat loop.
-    It waits for user input via the /message endpoint.
+    Get the current status of a debate session.
     """
-    # 1. Verify session exists in DB
     try:
         uuid_obj = uuid.UUID(session_id)
     except ValueError:
@@ -126,41 +152,23 @@ async def run_debate(session_id: str, db: Session = Depends(get_db)):
     if not db_debate:
         raise HTTPException(status_code=404, detail="Debate session not found in database.")
     
-    # 2. Get manager from in-memory store
     manager = active_debates.get(session_id)
     if not manager:
-        raise HTTPException(status_code=404, detail="Debate session manager not found in memory. It may have expired.")
+        raise HTTPException(status_code=404, detail="Debate session manager not found in memory.")
     
-    if manager.is_running:
-         raise HTTPException(status_code=409, detail="Debate is already running.")
-
-    # 3. --- Run the blocking start_debate method ---
-    # This call will block this specific request until it needs user input
-    # or finishes. The client calling this endpoint must handle this.
-    logger.info(f"Starting debate execution for session {session_id}...")
-    chat_result = manager.start_debate() # This is the BLOCKING call
-    
-    # 4. When start_debate returns (finished or errored), respond
-    if chat_result:
-        logger.info(f"Debate run for session {session_id} completed or paused.")
-        # Optionally return final history or status
-        # For now, just acknowledge
-        return {
-            "message": "Debate run completed or requires further input.",
-            "session_id": session_id,
-            # "final_history": manager.get_chat_history() # Optional
-        }
-    else:
-        logger.error(f"Debate run for session {session_id} failed.")
-        raise HTTPException(status_code=500, detail="Debate execution failed.")
-
+    return {
+        "session_id": session_id,
+        "is_running": manager.is_running,
+        "is_waiting_for_input": manager.is_waiting_for_input,
+        "message_count": len(manager.get_chat_history()),
+        "current_prompt": manager.current_prompt
+    }
 
 @app.get("/debates/{session_id}/history/", response_model=ChatHistoryResponse)
 async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
     """
-    3/ongoing. Retrieves the current chat history for a session.
+    Retrieves the current chat history for a session.
     """
-    # 1. Verify session exists in DB
     try:
         uuid_obj = uuid.UUID(session_id)
     except ValueError:
@@ -170,27 +178,33 @@ async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
     if not db_debate:
         raise HTTPException(status_code=404, detail="Debate session not found in database.")
     
-    # 2. Get manager from in-memory store
     manager = active_debates.get(session_id)
     if not manager:
         raise HTTPException(status_code=404, detail="Active debate session not found.")
     
-    # 3. Get history
-    messages = manager.get_chat_history()
+    # Get raw messages and convert to proper format
+    raw_messages = manager.get_chat_history()
     
-    # 4. Determine if active
-    is_active = manager.is_running
+    # Convert to ChatMessage objects
+    messages = []
+    for msg in raw_messages:
+        if isinstance(msg, dict) and msg.get("content"):
+            chat_message = ChatMessage(
+                sender=msg.get("name", "Unknown"),
+                message=msg.get("content", "")
+            )
+            messages.append(chat_message)
     
-    return ChatHistoryResponse(messages=messages, is_active=is_active)
-
+    return ChatHistoryResponse(
+        messages=messages, 
+        is_active=manager.is_running
+    )
 
 @app.post("/debates/{session_id}/message/")
 async def send_user_message(session_id: str, user_message: UserMessageRequest, db: Session = Depends(get_db)):
     """
-    4. Sends a message from the user to an active debate session.
-    This puts the message into the queue for the running debate.
+    Sends a message from the user to an active debate session.
     """
-    # 1. Verify session exists in DB
     try:
         uuid_obj = uuid.UUID(session_id)
     except ValueError:
@@ -200,18 +214,42 @@ async def send_user_message(session_id: str, user_message: UserMessageRequest, d
     if not db_debate:
         raise HTTPException(status_code=404, detail="Debate session not found in database.")
     
-    # 2. Get manager from in-memory store
     manager = active_debates.get(session_id)
     if not manager:
         raise HTTPException(status_code=404, detail="Active debate session not found.")
     
-    # 3. Send the message using the manager's method
+    if not manager.is_running:
+        raise HTTPException(status_code=400, detail="Debate session is not active.")
+    
+    if not manager.is_waiting_for_input:
+        raise HTTPException(status_code=400, detail="Debate is not waiting for user input at this time.")
+    
+    # Send the message
     result_message = manager.send_user_message(user_message.message)
     
-    # 4. Return status
-    # If the message was queued successfully, the /run endpoint should continue
-    return {"message": result_message, "session_id": session_id}
+    return {
+        "message": "Message sent successfully",
+        "session_id": session_id,
+        "user_message": user_message.message
+    }
 
+@app.delete("/debates/{session_id}/")
+async def stop_debate(session_id: str, db: Session = Depends(get_db)):
+    """
+    Stops and removes a debate session.
+    """
+    try:
+        uuid_obj = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session ID format.")
+    
+    manager = active_debates.get(session_id)
+    if manager:
+        manager.stop_debate()
+        del active_debates[session_id]
+        logger.info(f"Debate session {session_id} stopped and removed.")
+    
+    return {"message": f"Debate session {session_id} stopped successfully."}
 
 # --- Run the server ---
 if __name__ == "__main__":
