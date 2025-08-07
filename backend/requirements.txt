@@ -1,0 +1,11 @@
+fastapi[all]
+uvicorn
+httpx
+autogen
+pydantic
+ag2[openai]
+python-dotenv
+sqlalchemy
+psycopg2-binary # For PostgreSQL connection
+# Optional but recommended for async operations (we'll use sync for now, but good to have)
+asyncpg
