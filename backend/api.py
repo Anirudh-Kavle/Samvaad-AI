@@ -6,6 +6,7 @@ import uuid
 from typing import Dict, Any
 import logging
 import asyncio
+from models import ChatHistoryResponse, ChatMessage
 from contextlib import asynccontextmanager
 
 # Import database and service components
@@ -25,7 +26,6 @@ from council_chamber_manager import CouncilChamberManager
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # In-memory store for active debates
 active_debates: Dict[str, CouncilChamberManager] = {}
 
@@ -65,7 +65,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001","http://127.0.0.1:3000","http://127.0.0.1:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -164,41 +164,58 @@ async def get_debate_status(session_id: str, db: Session = Depends(get_db)):
         "current_prompt": manager.current_prompt
     }
 
+from fastapi import HTTPException
+from uuid import UUID
+from models import ChatHistoryResponse, ChatMessage
+
 @app.get("/debates/{session_id}/history/", response_model=ChatHistoryResponse)
 async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
     """
-    Retrieves the current chat history for a session.
+    Retrieves the current chat history for a session, always returning is_active.
     """
+
+    # Validate session ID format
     try:
         uuid_obj = uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid session ID format.")
-        
+
+    # Verify the debate exists in DB
     db_debate = get_debate_session(db, uuid_obj)
     if not db_debate:
         raise HTTPException(status_code=404, detail="Debate session not found in database.")
-    
+
+    # Check if active debate manager exists
     manager = active_debates.get(session_id)
     if not manager:
-        raise HTTPException(status_code=404, detail="Active debate session not found.")
-    
-    # Get raw messages and convert to proper format
-    raw_messages = manager.get_chat_history()
-    
-    # Convert to ChatMessage objects
+        # Session exists in DB but not in active memory
+        return ChatHistoryResponse(messages=[], is_active=False)
+
+    # Get messages from manager
+    raw_messages = manager.get_chat_history() or []
     messages = []
+
     for msg in raw_messages:
-        if isinstance(msg, dict) and msg.get("content"):
-            chat_message = ChatMessage(
-                sender=msg.get("name", "Unknown"),
-                message=msg.get("content", "")
-            )
-            messages.append(chat_message)
-    
-    return ChatHistoryResponse(
-        messages=messages, 
-        is_active=manager.is_running
-    )
+        try:
+            if isinstance(msg, dict):
+                content = msg.get("content") or msg.get("text") or msg.get("message") or ""
+                sender = msg.get("name") or msg.get("sender") or msg.get("role") or msg.get("author") or "Unknown"
+            elif isinstance(msg, (list, tuple)) and len(msg) >= 2:
+                sender, content = msg[0], msg[1]
+            else:
+                sender = "Unknown"
+                content = str(msg)
+        except Exception:
+            sender = "Unknown"
+            content = str(msg)
+
+        if content:
+            messages.append(ChatMessage(role=sender, content=content))
+
+    # Return with mandatory is_active
+    return ChatHistoryResponse(messages=messages, is_active=True)
+
+
 
 @app.post("/debates/{session_id}/message/")
 async def send_user_message(session_id: str, user_message: UserMessageRequest, db: Session = Depends(get_db)):
