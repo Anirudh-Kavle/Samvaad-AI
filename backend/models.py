@@ -72,32 +72,6 @@ class UserMessageRequest(BaseModel):
                 "message": "That's a fascinating point, Socrates. But what about...?"
             }
         }
-
-
-# --- SQLAlchemy Database Models ---
-
-class DebateSession(Base):
-    """
-    Represents a single debate session in the database.
-    """
-    __tablename__ = "debate_sessions"
-
-    # Use UUID for primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-    user_name = Column(String, nullable=False)
-    topic = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    # Add fields for status, end time, etc. as needed later
-    # status = Column(String, default="active")
-    # ended_at = Column(DateTime, nullable=True)
-
-    # Relationship to CouncilMember (one-to-many)
-    council_members = relationship("CouncilMember", back_populates="debate_session", cascade="all, delete-orphan")
-    # If you store chat messages in the DB, you'd add a relationship here too.
-
-    def __repr__(self):
-        return f"<DebateSession(id='{self.id}', topic='{self.topic}', user='{self.user_name}')>"
-
 class CouncilMember(Base):
     """
     Represents a council member (historical figure) in a debate session.
@@ -119,15 +93,46 @@ class CouncilMember(Base):
     def __repr__(self):
         return f"<CouncilMember(id='{self.id}', name='{self.name}', agent_name='{self.agent_name}')>"
 
-# --- Optional: ChatMessage DB Model (for persistence) ---
-# You might want to store the full chat history in the database.
-# This is a simplified example. AutoGen's messages are dicts, so you might store JSON.
-# class ChatMessageDB(Base):
-#     __tablename__ = "chat_messages"
-#     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-#     debate_session_id = Column(UUID(as_uuid=True), ForeignKey('debate_sessions.id'), nullable=False)
-#     sender_name = Column(String, nullable=False) # Name of agent or user
-#     content = Column(Text, nullable=False) # The message content
-#     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
-#     # Add a relationship if needed
-#     debate_session = relationship("DebateSession") # back_populates if you add one to DebateSession
+class ChatMessageDB(Base):
+    """
+    Persisted chat message for a debate session.
+    """
+    __tablename__ = "chat_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    debate_session_id = Column(UUID(as_uuid=True), ForeignKey('debate_sessions.id'), nullable=False)
+    sender_name = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # relationship back to DebateSession
+    debate_session = relationship("DebateSession", back_populates="messages")
+
+    def __repr__(self):
+        return f"<ChatMessageDB(id='{self.id}', sender='{self.sender_name}', ts='{self.timestamp}')>"
+# --- SQLAlchemy Database Models ---
+
+class DebateSession(Base):
+    """
+    Represents a single debate session in the database.
+    """
+    __tablename__ = "debate_sessions"
+
+    # Use UUID for primary key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    user_name = Column(String, nullable=False)
+    topic = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Add fields for status, end time, etc. as needed later
+    # status = Column(String, default="active")
+    # ended_at = Column(DateTime, nullable=True)
+
+    # Relationship to CouncilMember (one-to-many)
+    council_members = relationship("CouncilMember", back_populates="debate_session", cascade="all, delete-orphan")
+    # NEW: relationship to persisted chat messages
+    messages = relationship("ChatMessageDB", back_populates="debate_session", cascade="all, delete-orphan", order_by="ChatMessageDB.timestamp")
+    def __repr__(self):
+        return f"<DebateSession(id='{self.id}', topic='{self.topic}', user='{self.user_name}')>"
+
+
+

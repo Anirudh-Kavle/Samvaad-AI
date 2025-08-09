@@ -1,6 +1,7 @@
 # utils.py
 
 from typing import Tuple, List
+import uuid
 
 def get_user_input() -> Tuple[str, int, List[str], str]:
     """Collect user inputs for the debate setup"""
@@ -46,6 +47,7 @@ def get_user_input() -> Tuple[str, int, List[str], str]:
             print("   ❌ Please enter a valid topic!")
 
     return user_name, num_characters, characters, topic
+    pass
 
 
 def quick_start_sample():
@@ -90,13 +92,13 @@ def quick_start_sample():
                 print("   ❌ Please choose 1-4 or press Enter!")
         except ValueError:
             print("   ❌ Please enter a valid number or press Enter!")
+    pass
 
-
-def create_councilchamber_debate():
+def create_councilchamber_debate(user_name: str, characters: list, topic: str):
     """Main function to set up and start a debate"""
     print("🏛️ Welcome to CouncilChamber - Where History Debates!")
-    
-    # Try quick start first
+    session_id = str(uuid.uuid4())
+
     quick_result = quick_start_sample()
     if quick_result:
         user_name = input("👋 What's your name? (You'll be participating): ").strip() or "Moderator"
@@ -104,7 +106,6 @@ def create_councilchamber_debate():
     else:
         user_name, num_chars, characters, topic = get_user_input()
 
-    # Confirmation
     print(f"\n✅ DEBATE SETUP CONFIRMED")
     print(f"   👥 Participants: {', '.join(characters)}")
     print(f"   📜 Topic: '{topic}'")
@@ -113,12 +114,15 @@ def create_councilchamber_debate():
         print("   Debate cancelled.")
         return None
 
-    # Import here to avoid circular imports if needed later
     from council_chamber_manager import CouncilChamberManager
-    
-    # Create and start the debate
-    chamber = CouncilChamberManager(user_name, characters, topic)
+    chamber = CouncilChamberManager(
+        session_id=session_id,
+        user_name=user_name,
+        character_names=characters,
+        topic=topic
+    )
     return chamber.start_debate()
+
 
 
 # Example usage (if run directly - for testing purposes)

@@ -1,14 +1,17 @@
 # council_chamber_manager.py
-
 import autogen
 import logging
 import queue
 import threading
 import time
-from typing import List, Optional, Any
+from typing import List, Any
 from council_member import CouncilMember
 from config import LLM_CONFIG
-
+from database import SessionLocal  # session factory
+from services import save_chat_message
+from datetime import datetime
+from sqlalchemy.orm import Session as SASession
+import uuid
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,24 +30,51 @@ class QueuedUserProxyAgent(autogen.UserProxyAgent):
         """
         Overrides the default input method to get input from a queue.
         This method will block until an item is available in the queue.
+        Always returns a plain string, as required by AutoGen.
         """
         logger.info(f"[{self.name}] Prompting user: {prompt}")
-        
+
         # Set the manager state to indicate we're waiting for input
         if self.manager_ref:
-            self.manager_ref.is_waiting_for_input = True
-            self.manager_ref.current_prompt = prompt
-        
+            try:
+                self.manager_ref.is_waiting_for_input = True
+                self.manager_ref.current_prompt = prompt
+            except Exception:
+                # Defensive: manager_ref might not have these attributes yet
+                pass
+
         # Block and wait for input from the API endpoint
-        user_input = self.input_queue.get()
+        try:
+            user_input = self.input_queue.get()  # blocking
+        except Exception as e:
+            logger.error(f"[{self.name}] Error getting from input_queue: {e}", exc_info=True)
+            user_input = None
+
         logger.info(f"[{self.name}] Received user input: {user_input}")
-        
+
         # Clear the waiting state
         if self.manager_ref:
-            self.manager_ref.is_waiting_for_input = False
-            self.manager_ref.current_prompt = None
-            
-        return user_input
+            try:
+                self.manager_ref.is_waiting_for_input = False
+                self.manager_ref.current_prompt = None
+            except Exception:
+                pass
+
+        # Ensure we return only the text, not a dict
+        if isinstance(user_input, dict):
+            text_value = (
+                user_input.get("message")
+                or user_input.get("content")
+                or user_input.get("text")
+                or str(user_input)
+            )
+            return text_value
+        elif user_input is None:
+            # Defensive fallback — return empty string so AutoGen doesn't error
+            return ""
+        else:
+            return str(user_input)
+
 
 # --- 2. Main Manager Class ---
 class CouncilChamberManager:
@@ -83,7 +113,7 @@ class CouncilChamberManager:
             human_input_mode="ALWAYS",
             code_execution_config=False,
             max_consecutive_auto_reply=1,
-            is_termination_msg=lambda x: self.stop_requested,  # Check for stop request
+            is_termination_msg=lambda _: self.stop_requested,  # Check for stop request
             default_auto_reply="[Waiting for human input...]",
         )
         
@@ -103,6 +133,9 @@ class CouncilChamberManager:
             groupchat=self.group_chat,
             llm_config=LLM_CONFIG
         )
+        # Persistence tracking
+        self.last_persisted_index = 0
+        self.persistence_thread = None
 
     def display_council_info(self):
         """Display the debate setup information (optional for API)"""
@@ -128,6 +161,12 @@ class CouncilChamberManager:
         )
         self.background_thread.daemon = True
         self.background_thread.start()
+        self.persistence_thread = threading.Thread(
+            target=self._persistence_loop,
+            name=f"Persist-{self.session_id}",
+            daemon=True
+        )
+        self.persistence_thread.start()
 
     def _run_debate_thread(self):
         """
@@ -149,6 +188,7 @@ Draw from your actual beliefs and experiences.
 
         try:
             logger.info(f"Initiating chat for session {self.session_id}...")
+            # Initiate the chat - user_proxy will block on get_human_input when necessary
             self.chat_result = self.user_proxy.initiate_chat(
                 self.manager,
                 message=opening_prompt,
@@ -213,6 +253,9 @@ Draw from your actual beliefs and experiences.
         
         self.is_running = False
         self.is_waiting_for_input = False
+        if self.persistence_thread and self.persistence_thread.is_alive():
+            self.persistence_thread.join(timeout=3.0)
+
 
     def get_chat_history(self) -> List[dict[str, Any]]:
         """Returns the current chat history."""
@@ -230,3 +273,66 @@ Draw from your actual beliefs and experiences.
             "message_count": len(self.get_chat_history()),
             "thread_alive": self.background_thread.is_alive() if self.background_thread else False
         }
+    def _persistence_loop(self, poll_interval: float = 1.0):
+        """
+        Background loop that periodically persists any new messages to the DB.
+        Runs while debate is active.
+        """
+        logger.info(f"Persistence loop started for session {self.session_id}")
+        try:
+            while self.is_running and not self.stop_requested:
+                try:
+                    self.persist_new_messages()
+                except Exception as e:
+                    logger.error(f"Error persisting messages for session {self.session_id}: {e}", exc_info=True)
+                time.sleep(poll_interval)
+            # One final flush after run ends
+            try:
+                self.persist_new_messages()
+            except Exception:
+                pass
+        finally:
+            logger.info(f"Persistence loop finished for session {self.session_id}")
+    def persist_new_messages(self):
+        """
+        Persist any messages from group_chat.messages that haven't been saved yet.
+        """
+        msgs = self.get_chat_history() or []
+        new_msgs = msgs[self.last_persisted_index:]
+        if not new_msgs:
+            return
+
+        # open a DB session local to this thread
+        db: SASession = SessionLocal()
+        try:
+            for m in new_msgs:
+                # m may be dict-like or object; extract sender and content safely
+                # We'll handle common autogen message shapes:
+                sender = None
+                content = None
+                if isinstance(m, dict):
+                    sender = m.get("sender") or m.get("role") or m.get("author") or "unknown"
+                    content = m.get("message") or m.get("content") or m.get("text") or str(m)
+                elif isinstance(m, (list, tuple)) and len(m) >= 2:
+                    sender, content = m[0], m[1]
+                else:
+                    # object with attributes
+                    sender = getattr(m, "sender", None) or getattr(m, "role", None) or getattr(m, "author", None) or "unknown"
+                    content = getattr(m, "message", None) or getattr(m, "content", None) or getattr(m, "text", None) or str(m)
+
+                # Normalize types
+                sender = sender or "unknown"
+                content = content if content is not None else ""
+
+                # Save to DB using service helper
+                try:
+                    save_chat_message(db=db, session_id=uuid.UUID(self.session_id), sender=sender, content=str(content), timestamp=datetime.now(datetime.timezone.utc))
+                except Exception as e:
+                    logger.error(f"Failed saving message to DB for session {self.session_id}: {e}", exc_info=True)
+                    # continue — do not abort persistence loop
+                    continue
+
+            # Advance persisted index
+            self.last_persisted_index += len(new_msgs)
+        finally:
+            db.close()
