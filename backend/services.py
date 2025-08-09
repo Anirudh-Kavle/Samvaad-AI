@@ -1,9 +1,10 @@
 # services.py
 
 from sqlalchemy.orm import Session
-from models import DebateSession, CouncilMember
+from models import DebateSession, CouncilMember,  ChatMessageDB
 import uuid
 from typing import List
+from datetime import datetime
 
 def create_debate_session(
     db: Session, 
@@ -64,13 +65,41 @@ def get_debate_session(db: Session, session_id: uuid.UUID) -> DebateSession:
     """
     return db.query(DebateSession).filter(DebateSession.id == session_id).first()
 
-# We can add more service functions here as needed, for example:
-# def get_all_debate_sessions(db: Session, skip: int = 0, limit: int = 100):
-#     return db.query(DebateSession).offset(skip).limit(limit).all()
+def save_chat_message(db: Session, session_id: uuid.UUID, sender: str, content: str, timestamp: datetime | None = None) -> ChatMessageDB:
+    """
+    Persist a chat message for the given debate session.
+    """
+    if timestamp is None:
+        timestamp = datetime.utcnow()
 
-# def delete_debate_session(db: Session, session_id: uuid.UUID):
-#     db_debate = db.query(DebateSession).filter(DebateSession.id == session_id).first()
-#     if db_debate:
-#         db.delete(db_debate)
-#         db.commit()
-#     return db_debate
+    msg = ChatMessageDB(
+        debate_session_id=session_id,
+        sender_name=sender,
+        content=content,
+        timestamp=timestamp
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+def get_messages_for_session(db: Session, session_id: uuid.UUID, skip: int = 0, limit: int = 1000) -> List[ChatMessageDB]:
+    """
+    Fetch persisted messages for a session ordered by timestamp.
+    """
+    return (
+        db.query(ChatMessageDB)
+          .filter(ChatMessageDB.debate_session_id == session_id)
+          .order_by(ChatMessageDB.timestamp)
+          .offset(skip)
+          .limit(limit)
+          .all()
+    )
+
+
+def list_debate_sessions(db: Session, skip: int = 0, limit: int = 100) -> List[DebateSession]:
+    """
+    Return a list of debate sessions (lightweight) for the sidebar.
+    """
+    return db.query(DebateSession).order_by(DebateSession.created_at.desc()).offset(skip).limit(limit).all()
