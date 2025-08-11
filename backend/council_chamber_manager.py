@@ -6,10 +6,11 @@ import threading
 import time
 from typing import List, Any
 from council_member import CouncilMember
+import json
 from config import LLM_CONFIG
 from database import SessionLocal  # session factory
 from services import save_chat_message
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session as SASession
 import uuid
 # Setup logging
@@ -81,6 +82,11 @@ class CouncilChamberManager:
     """Manages the philosophical debate between dynamically selected characters"""
 
     def __init__(self, session_id: str, user_name: str, character_names: List[str], topic: str):
+        # Normalize session_id so it's always a UUID object
+        if isinstance(session_id, str):
+            session_id = uuid.UUID(session_id)
+        self.session_id = session_id
+
         self.session_id = session_id 
         self.user_name = user_name
         self.topic = topic
@@ -293,46 +299,176 @@ Draw from your actual beliefs and experiences.
                 pass
         finally:
             logger.info(f"Persistence loop finished for session {self.session_id}")
+   
+
     def persist_new_messages(self):
         """
         Persist any messages from group_chat.messages that haven't been saved yet.
         """
         msgs = self.get_chat_history() or []
         new_msgs = msgs[self.last_persisted_index:]
+
         if not new_msgs:
             return
 
-        # open a DB session local to this thread
         db: SASession = SessionLocal()
         try:
-            for m in new_msgs:
-                # m may be dict-like or object; extract sender and content safely
-                # We'll handle common autogen message shapes:
-                sender = None
-                content = None
-                if isinstance(m, dict):
-                    sender = m.get("sender") or m.get("role") or m.get("author") or "unknown"
-                    content = m.get("message") or m.get("content") or m.get("text") or str(m)
-                elif isinstance(m, (list, tuple)) and len(m) >= 2:
-                    sender, content = m[0], m[1]
-                else:
-                    # object with attributes
-                    sender = getattr(m, "sender", None) or getattr(m, "role", None) or getattr(m, "author", None) or "unknown"
-                    content = getattr(m, "message", None) or getattr(m, "content", None) or getattr(m, "text", None) or str(m)
-
-                # Normalize types
-                sender = sender or "unknown"
-                content = content if content is not None else ""
-
-                # Save to DB using service helper
+            saved = 0
+            for i, m in enumerate(new_msgs):
                 try:
-                    save_chat_message(db=db, session_id=uuid.UUID(self.session_id), sender=sender, content=str(content), timestamp=datetime.now(datetime.timezone.utc))
+                    sender = self._extract_sender(m)
+                    content = self._extract_content(m)
+                    
+                    logger.info(f"[{self.session_id}] Saving message from {sender}: {content[:100]}...")
+
+                    save_chat_message(
+                        db=db,
+                        session_id=self.session_id if isinstance(self.session_id, uuid.UUID) else uuid.UUID(str(self.session_id)),
+                        sender=str(sender),
+                        content=str(content),
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    saved += 1
+
                 except Exception as e:
-                    logger.error(f"Failed saving message to DB for session {self.session_id}: {e}", exc_info=True)
-                    # continue — do not abort persistence loop
+                    logger.error(f"[{self.session_id}] Failed saving message {i}: {e}", exc_info=True)
                     continue
 
-            # Advance persisted index
+            if saved:
+                logger.info(f"[{self.session_id}] Successfully persisted {saved} messages.")
+            self.last_persisted_index += len(new_msgs)
+            
+        except Exception as e:
+            logger.error(f"[{self.session_id}] Error in persist_new_messages: {e}", exc_info=True)
+        finally:
+            db.close()
+
+    def _extract_sender(self, m) -> str:
+        """
+        Extract sender name from AutoGen message.
+        """
+        # Handle dict messages (most common in AutoGen)
+        if isinstance(m, dict):
+            # Primary field for AutoGen messages
+            if 'name' in m and m['name']:
+                return str(m['name'])
+            
+            # Fallback fields
+            for field in ['from', 'sender', 'author', 'speaker', 'role']:
+                if field in m and m[field]:
+                    return str(m[field])
+                    
+            # Check if there's a nested structure
+            if 'message' in m and isinstance(m['message'], dict):
+                nested_sender = self._extract_sender(m['message'])
+                if nested_sender != "unknown":
+                    return nested_sender
+        
+        # Handle object messages
+        if hasattr(m, 'name') and m.name:
+            return str(m.name)
+        
+        # Additional fallbacks for objects
+        for attr in ['from_', 'sender', 'author', 'speaker']:
+            if hasattr(m, attr):
+                value = getattr(m, attr)
+                if value:
+                    return str(value)
+        
+        # Last resort
+        logger.warning(f"[{self.session_id}] Could not extract sender from message")
+        return "unknown"
+    def _extract_content(self, m) -> str:
+        """
+        Extract message content from AutoGen message.
+        """
+        # Handle dict messages (most common in AutoGen)
+        if isinstance(m, dict):
+            # Primary field for AutoGen messages
+            if 'content' in m and m['content'] is not None:
+                return str(m['content'])
+            
+            # Fallback fields
+            for field in ['message', 'text', 'body']:
+                if field in m and m[field] is not None:
+                    return str(m[field])
+        
+        # Handle object messages
+        if hasattr(m, 'content') and m.content is not None:
+            return str(m.content)
+        
+        # Additional fallbacks for objects
+        for attr in ['message', 'text', 'body']:
+            if hasattr(m, attr):
+                value = getattr(m, attr)
+                if value is not None:
+                    return str(value)
+        
+        # If it's a string, return it directly
+        if isinstance(m, str):
+            return m
+        
+        # Last resort
+        return ""
+
+        db: SASession = SessionLocal()
+        try:
+            saved = 0
+            for m in new_msgs:
+                try:
+                    sender = _extract_sender(m) or "unknown"
+                    content = _extract_content(m) or ""
+                    preview = content.replace("\n", " ")[:180]
+
+                    logger.info(f"[{self.session_id}] Saving message: sender={sender}, content_preview={preview!r}")
+
+                    save_chat_message(
+                        db=db,
+                        session_id=self.session_id if isinstance(self.session_id, uuid.UUID) else uuid.UUID(str(self.session_id)),
+                        sender=str(sender),
+                        content=str(content),
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    saved += 1
+
+                except Exception:
+                    logger.error(f"[{self.session_id}] Failed saving one message. raw_repr={repr(m)} type={type(m)}", exc_info=True)
+                    continue
+
+            if saved:
+                logger.info(f"[{self.session_id}] Persisted {saved} messages.")
             self.last_persisted_index += len(new_msgs)
         finally:
             db.close()
+
+
+def debug_message_structure(self):
+    """
+    Debug method to see the actual structure of AutoGen messages.
+    """
+    msgs = self.get_chat_history() or []
+    logger.info(f"[{self.session_id}] === MESSAGE STRUCTURE DEBUG ===")
+    logger.info(f"[{self.session_id}] Total messages in chat history: {len(msgs)}")
+    
+    for i, msg in enumerate(msgs[-5:]):  # Look at last 5 messages
+        logger.info(f"[{self.session_id}] Message {i}:")
+        logger.info(f"  Type: {type(msg)}")
+        logger.info(f"  Raw repr: {repr(msg)}")
+        
+        if isinstance(msg, dict):
+            logger.info(f"  Keys: {list(msg.keys())}")
+            for key, value in msg.items():
+                if key in ['name', 'content', 'from', 'sender', 'role', 'speaker']:
+                    logger.info(f"    {key}: {repr(value)}")
+                else:
+                    logger.info(f"    {key}: {str(type(value))} (length: {len(str(value)) if value else 0})")
+        else:
+            # If it's an object, show its attributes
+            attrs = [attr for attr in dir(msg) if not attr.startswith('_')]
+            logger.info(f"  Attributes: {attrs[:10]}...")  # Show first 10 attrs
+            for attr in ['name', 'content', 'from', 'sender', 'role']:
+                if hasattr(msg, attr):
+                    value = getattr(msg, attr, None)
+                    logger.info(f"    {attr}: {repr(value)}")
+        
+        logger.info(f"  {'='*50}")

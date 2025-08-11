@@ -262,3 +262,5 @@ def get_full_history(session_id: str, db: Session = Depends(get_db)):
     is_active = session_id in active_debates  # active_debates is your in-memory dict
 
     return ChatHistoryResponse(messages=items, is_active=is_active)
+
+
