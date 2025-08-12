@@ -30,7 +30,7 @@ CONFIG_LIST = [
 LLM_CONFIG = {
     "config_list": CONFIG_LIST,
     "temperature": 0.8,
-    "max_tokens": 800,
+    "max_tokens": 500,
 }
 
 print("🏛️ CouncilChamber Configuration Loaded (config.py)")

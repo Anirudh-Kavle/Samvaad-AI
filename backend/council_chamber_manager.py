@@ -81,17 +81,15 @@ class QueuedUserProxyAgent(autogen.UserProxyAgent):
 class CouncilChamberManager:
     """Manages the philosophical debate between dynamically selected characters"""
 
-    def __init__(self, session_id: str, user_name: str, character_names: List[str], topic: str):
+    def __init__(self, session_id: str, user_name: str, character_names: List[str], topic: str, groq_api_key: str):
         # Normalize session_id so it's always a UUID object
         if isinstance(session_id, str):
             session_id = uuid.UUID(session_id)
         self.session_id = session_id
-
-        self.session_id = session_id 
         self.user_name = user_name
         self.topic = topic
         self.character_names = character_names
-        self.members = [CouncilMember(name) for name in character_names]
+        self.groq_api_key = groq_api_key 
         
         # --- Create Input Queue ---
         self.input_queue = queue.Queue()
@@ -103,6 +101,35 @@ class CouncilChamberManager:
         self.chat_result = None
         self.background_thread = None
         self.stop_requested = False
+
+ # --- Create LLM Config with User's API Key ---
+        self.llm_config_with_key = LLM_CONFIG.copy()
+        if self.llm_config_with_key.get("config_list"):
+             # Iterate through the config list and update api_key
+             updated_config_list = []
+             for config_item in self.llm_config_with_key["config_list"]:
+                 new_config_item = config_item.copy() # Shallow copy the item
+                 new_config_item["api_key"] = self.groq_api_key # Override api_key
+                 # Fix potential trailing space in base_url if present in original
+                 if "base_url" in new_config_item and new_config_item["base_url"]:
+                     new_config_item["base_url"] = new_config_item["base_url"].strip()
+                 updated_config_list.append(new_config_item)
+             self.llm_config_with_key["config_list"] = updated_config_list
+        else:
+             # If config_list is missing, create it with the user's key
+             self.llm_config_with_key["config_list"] = [
+                 {
+                     "model": "llama-3.3-70b-versatile", # Default model, adjust if needed
+                     "api_key": self.groq_api_key,
+                     # Removed trailing spaces from base_url
+                     "base_url": "https://api.groq.com/openai/v1", # <-- Changed here
+                     "price": [0.0, 0.0]
+                 }
+             ]
+         
+        # Create members AFTER setting up llm_config_with_key
+        # Removed the first initialization of self.members
+        self.members = [CouncilMember(name, llm_config_override=self.llm_config_with_key) for name in self.character_names] # Pass config
 
         # --- Create Custom User Proxy ---
         self.user_proxy = QueuedUserProxyAgent(
@@ -124,7 +151,7 @@ class CouncilChamberManager:
         )
         
         self.agents = [member.agent for member in self.members] + [self.user_proxy]
-        self.max_rounds = 20
+        self.max_rounds = 50
 
         self.group_chat = autogen.GroupChat(
             agents=self.agents,
@@ -137,7 +164,7 @@ class CouncilChamberManager:
         
         self.manager = autogen.GroupChatManager(
             groupchat=self.group_chat,
-            llm_config=LLM_CONFIG
+            llm_config=self.llm_config_with_key
         )
         # Persistence tracking
         self.last_persisted_index = 0

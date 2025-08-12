@@ -16,18 +16,19 @@ from config import LLM_CONFIG
 
 class CouncilMember:
     """Enhanced agent wrapper for dynamic character creation"""
-    def __init__(self, character_name: str):
+    def __init__(self, character_name: str, llm_config_override=None):
         if not AUTOGEN_AVAILABLE:
              raise RuntimeError("AutoGen library is required but not available.")
         self.character_name = character_name
         self.speaking_count = 0
         # Generate character profile
         self.profile = CharacterProfiler.create_character_profile(character_name)
+        config_to_use = llm_config_override if llm_config_override is not None else LLM_CONFIG # <--- Use override if provided
         # Create the agent
         self.agent = autogen.AssistantAgent(
             name=self.profile["agent_name"],
             system_message=self.profile["system_message"],
-            llm_config=LLM_CONFIG, # Use the config imported from config.py
+            llm_config=config_to_use,# Use the config imported from config.py
         )
 
     def __str__(self):

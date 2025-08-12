@@ -28,24 +28,73 @@ def _pop_active_debate(session_id: str):
         return active_debates.pop(session_id, None)
 
 # --- message serializer ---
+# Update your serialize_message function in backend/api.py
+
 def serialize_message(msg: Any) -> dict:
+    """
+    Improved message serialization that properly extracts sender names from AutoGen messages.
+    """
+    print(f"DEBUG: Serializing message - Type: {type(msg)}, Content: {repr(msg)}")
+    
     if isinstance(msg, dict):
-        sender = msg.get("sender") or msg.get("role") or msg.get("name") or msg.get("author") or "Unknown"
-        message = msg.get("message") or msg.get("content") or msg.get("text") or ""
-        return {"sender": sender, "message": message}
+        # AutoGen messages typically have 'name' for sender and 'content' for message
+        sender = None
+        message = None
+        
+        # Try AutoGen standard fields first
+        if 'name' in msg and msg['name']:
+            sender = msg['name']
+        elif 'role' in msg and msg['role']:
+            sender = msg['role']
+        
+        # Try other common sender fields
+        if not sender:
+            for field in ["sender", "author", "from", "speaker"]:
+                if field in msg and msg[field]:
+                    sender = msg[field]
+                    break
+        
+        # Extract message content
+        if 'content' in msg and msg['content']:
+            message = msg['content']
+        elif 'message' in msg and msg['message']:
+            message = msg['message']
+        elif 'text' in msg and msg['text']:
+            message = msg['text']
+        
+        print(f"DEBUG: Extracted - Sender: '{sender}', Message preview: '{str(message)[:100]}...'")
+        
+        return {
+            "sender": sender if sender else "Unknown",
+            "message": message if message else str(msg)
+        }
+    
+    # Handle tuple/list format
     if isinstance(msg, (list, tuple)) and len(msg) >= 2:
         sender, message = msg[0], msg[1]
-        return {"sender": sender, "message": message}
+        return {"sender": str(sender), "message": str(message)}
+    
+    # Handle object attributes
     sender = None
     message = None
-    for cand_sender in ("sender", "role", "name", "author"):
-        if hasattr(msg, cand_sender):
-            sender = getattr(msg, cand_sender)
-            break
-    for cand_msg in ("message", "content", "text", "body"):
-        if hasattr(msg, cand_msg):
-            message = getattr(msg, cand_msg)
-            break
+    
+    # Try to extract sender from object attributes
+    for attr in ("name", "role", "sender", "author", "from", "speaker"):
+        if hasattr(msg, attr):
+            value = getattr(msg, attr)
+            if value:
+                sender = str(value)
+                break
+    
+    # Try to extract message from object attributes
+    for attr in ("content", "message", "text", "body"):
+        if hasattr(msg, attr):
+            value = getattr(msg, attr)
+            if value:
+                message = str(value)
+                break
+    
+    # If we still don't have a message, try to_dict method
     if message is None:
         try:
             if hasattr(msg, "to_dict"):
@@ -53,8 +102,13 @@ def serialize_message(msg: Any) -> dict:
         except Exception:
             pass
         message = str(msg)
-    return {"sender": sender or "Unknown", "message": message}
-
+    
+    print(f"DEBUG: Final result - Sender: '{sender}', Message preview: '{str(message)[:100]}...'")
+    
+    return {
+        "sender": sender if sender else "Unknown",
+        "message": message if message else "Empty message"
+    }
 # --- imports ---
 from database import get_db, init_db, test_connection
 from sqlalchemy.orm import Session
@@ -134,6 +188,8 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
         raise HTTPException(status_code=400, detail="At least 2 characters are required.")
     if not debate_request.topic.strip():
         raise HTTPException(status_code=400, detail="A topic is required.")
+    if not debate_request.groq_api_key.strip(): # <--- Validate key presence
+         raise HTTPException(status_code=400, detail="GROQ API Key is required.")
     db_debate = create_debate_session(
         db=db,
         user_name=debate_request.user_name,
@@ -145,9 +201,11 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
         session_id=session_id,
         user_name=debate_request.user_name,
         character_names=debate_request.character_names,
-        topic=debate_request.topic
+        topic=debate_request.topic,
+        groq_api_key=debate_request.groq_api_key,
     )
     _set_active_debate(session_id, chamber_manager)
+    logger.info(f"📌 Scheduling background task for session {session_id}")
     background_tasks.add_task(chamber_manager.start_debate_background_task)
     return _convert_manager_to_response_with_session(chamber_manager, session_id)
 
@@ -264,3 +322,37 @@ def get_full_history(session_id: str, db: Session = Depends(get_db)):
     return ChatHistoryResponse(messages=items, is_active=is_active)
 
 
+@app.get("/debates/{session_id}/info/")
+async def get_debate_info(session_id: str, db: Session = Depends(get_db)):
+    """
+    Get basic debate session information for the frontend.
+    """
+    try:
+        uuid_obj = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session ID format.")
+    
+    db_debate = get_debate_session(db, uuid_obj)
+    if not db_debate:
+        raise HTTPException(status_code=404, detail="Debate session not found in database.")
+    
+    # Get the active manager if available
+    manager = _get_active_debate(session_id)
+    
+    # Build council members info
+    council_members = [
+        {
+            "name": cm.name,
+            "agent_name": cm.agent_name
+        }
+        for cm in db_debate.council_members
+    ]
+    
+    return {
+        "session_id": session_id,
+        "user_name": db_debate.user_name,
+        "topic": db_debate.topic,
+        "council_members": council_members,
+        "message": "Debate session information",
+        "is_active": manager is not None and manager.is_running if manager else False
+    }

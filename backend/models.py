@@ -14,6 +14,7 @@ class DebateSetupRequest(BaseModel):
     Model for the request data to initiate a debate.
     """
     user_name: str = "Participant"
+    groq_api_key: str
     character_names: List[str] # List of character names to include
     topic: str # The debate topic
 
@@ -22,6 +23,7 @@ class DebateSetupRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "user_name": "Alex",
+                "groq_api_key": "gsk_...",
                 "character_names": ["Socrates", "Friedrich Nietzsche", "Maya Angelou"],
                 "topic": "The meaning of suffering"
             }
