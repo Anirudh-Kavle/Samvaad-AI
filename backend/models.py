@@ -9,6 +9,7 @@ from database import Base # Import the Base from our database.py
 import uuid
 from datetime import datetime
 
+
 class DebateSetupRequest(BaseModel):
     """
     Model for the request data to initiate a debate.
@@ -135,6 +136,7 @@ class DebateSession(Base):
     messages = relationship("ChatMessageDB", back_populates="debate_session", cascade="all, delete-orphan", order_by="ChatMessageDB.timestamp")
     def __repr__(self):
         return f"<DebateSession(id='{self.id}', topic='{self.topic}', user='{self.user_name}')>"
+
 
 
 

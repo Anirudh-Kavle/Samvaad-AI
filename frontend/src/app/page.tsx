@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, MessageCircle, Lightbulb, BookOpen, Sparkles, ArrowRight } from "lucide-react"
 import InfiniteScroll from "@/components/InfiniteScroll"
+import Link from "next/link";
 
 export default function LandingPage() {
   const characters = [
@@ -112,14 +113,15 @@ export default function LandingPage() {
               alongside history's most fascinating personalities.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/debate/new">
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 hover:from-amber-500 hover:to-amber-700 text-lg px-8 py-3"
-                onClick={() => (window.location.href = "/debate")}
               >
                 Start Your First Debate
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
+            </Link>
               <Button
                 size="lg"
                 variant="outline"

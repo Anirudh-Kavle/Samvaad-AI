@@ -119,7 +119,7 @@ class CouncilChamberManager:
              # If config_list is missing, create it with the user's key
              self.llm_config_with_key["config_list"] = [
                  {
-                     "model": "llama-3.3-70b-versatile", # Default model, adjust if needed
+                     "model": "moonshotai/kimi-k2-instruct", # Default model, adjust if needed
                      "api_key": self.groq_api_key,
                      # Removed trailing spaces from base_url
                      "base_url": "https://api.groq.com/openai/v1", # <-- Changed here
