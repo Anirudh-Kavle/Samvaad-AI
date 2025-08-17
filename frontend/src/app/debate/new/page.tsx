@@ -42,6 +42,7 @@ export default function NewDebatePage() {
     setLoading(true);
 
     try {
+      const existingSessionToken = localStorage.getItem("SESSION_TOKEN");
       const res = await fetch("http://localhost:8000/debates/start/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,6 +51,7 @@ export default function NewDebatePage() {
           groq_api_key: apiKey,
           topic,
           character_names: validChars,
+          session_token: existingSessionToken,
         }),
       });
 
@@ -60,10 +62,10 @@ export default function NewDebatePage() {
 
       const data = await res.json();
       const sessionId = data.session_id;
-
+      const sessionToken = data.session_token;
       // Pass API key via localStorage (⚠️ for dev only)
       localStorage.setItem("GROQ_API_KEY", apiKey);
-
+      localStorage.setItem("SESSION_TOKEN", sessionToken);
       // Redirect to the debate room
       window.location.href = `/debate/${sessionId}`;
     } catch (err: any) {

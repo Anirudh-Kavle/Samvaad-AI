@@ -1,16 +1,17 @@
 # services.py
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models import DebateSession, CouncilMember,  ChatMessageDB
 import uuid
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 def create_debate_session(
     db: Session, 
     user_name: str, 
     topic: str, 
-    character_names: List[str]
+    character_names: List[str],
+    session_token: Optional[str] = None
 ) -> DebateSession:
     """
     Creates a new debate session and associated council members in the database.
@@ -24,10 +25,13 @@ def create_debate_session(
     Returns:
         DebateSession: The newly created DebateSession object.
     """
+    if session_token is None:
+        session_token = str(uuid.uuid4())
     # Create the DebateSession instance
     db_debate = DebateSession(
         user_name=user_name,
-        topic=topic
+        topic=topic,
+        session_token=session_token
     )
     db.add(db_debate)
     db.flush()  # Flush to get the generated ID without committing
@@ -98,8 +102,18 @@ def get_messages_for_session(db: Session, session_id: uuid.UUID, skip: int = 0, 
     )
 
 
-def list_debate_sessions(db: Session, skip: int = 0, limit: int = 100) -> List[DebateSession]:
+def list_debate_sessions_by_token(db: Session, session_token: str, skip: int = 0, limit: int = 100) -> List[DebateSession]:
     """
     Return a list of debate sessions (lightweight) for the sidebar.
     """
-    return db.query(DebateSession).order_by(DebateSession.created_at.desc()).offset(skip).limit(limit).all()
+    return db.query(DebateSession).options(joinedload(DebateSession.council_members)).filter(DebateSession.session_token == session_token).order_by(DebateSession.created_at.desc()).offset(skip).limit(limit).all()
+
+def verify_session_access(db: Session, debate_session_id: uuid.UUID, session_token: str) -> bool:
+    """
+    Verify that the session token has access to the debate session.
+    """
+    debate = db.query(DebateSession).filter(
+        DebateSession.id == debate_session_id,
+        DebateSession.session_token == session_token
+    ).first()
+    return debate is not None

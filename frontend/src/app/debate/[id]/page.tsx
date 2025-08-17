@@ -64,167 +64,194 @@ interface Character {
 export default function DebateRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const { id: sessionId } = resolvedParams
-
+  console.log("DEBUG: sessionId from URL is:", sessionId);
   const [messageInput, setMessageInput] = useState("")
   const [messages, setMessages] = useState<BackendChatMessage[]>([])
   const [debateInfo, setDebateInfo] = useState<BackendDebateInfo | null>(null)
   const [isDebateActive, setIsDebateActive] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+  const [sessionTokenError, setSessionTokenError] = useState<string | null>(null);  
   // Previous debates sidebar state
   const [previousDebates, setPreviousDebates] = useState<PreviousDebate[]>([])
   const [sidebarLoading, setSidebarLoading] = useState(true)
   const [selectedDebateId, setSelectedDebateId] = useState<string>(sessionId)
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Fetch all previous debates for sidebar
+  // Add helper function for API calls with session token
+const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
+  const sessionToken = localStorage.getItem("SESSION_TOKEN");
+  if (!sessionToken) {
+    throw new Error("No session token found. Please start a new debate.");
+  }
+
+  const headers = {
+    ...options.headers,
+    "X-Session-Token": sessionToken,
+    "Content-Type": "application/json",
+  };
+
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+};
+
+// Fetch all previous debates for sidebar
   useEffect(() => {
     const fetchPreviousDebates = async () => {
       try {
-        const res = await fetch('http://localhost:8000/debates/', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        })
+        const sessionToken = localStorage.getItem("SESSION_TOKEN");
+        if (!sessionToken) {
+          setSessionTokenError("No session found. Please start a new session.");
+          setSidebarLoading(false);
+          return;
+        }
 
+        const res = await makeAuthenticatedRequest('http://localhost:8000/debates/');
         if (res.ok) {
-          const debates: PreviousDebate[] = await res.json()
-          setPreviousDebates(debates)
+          const debates: PreviousDebate[] = await res.json();
+          setPreviousDebates(debates);
+          setSessionTokenError(null);
+        } else if (res.status === 401) {
+          setSessionTokenError("Session expired. Please start a new debate.");
+        } else {
+          console.error("Failed to fetch debates:", res.status);
+          setSessionTokenError("Failed to load your debates.");
         }
       } catch (err) {
-        console.error("Failed to fetch previous debates:", err)
+        console.error("Failed to fetch previous debates:", err);
+        setSessionTokenError("Failed to load your debates.");
       } finally {
-        setSidebarLoading(false)
+        setSidebarLoading(false);
       }
-    }
+    };
 
-    fetchPreviousDebates()
-  }, [])
+    fetchPreviousDebates();
+  }, []);
 
   // Fetch debate metadata
   useEffect(() => {
-    if (!selectedDebateId) return
+    console.log("DEBUG: useEffect for fetchDebateInfo is running. selectedDebateId is:", selectedDebateId); // DEBUG 2: Check if the effect runs
 
-    const fetchDebateInfo = async () => {
-      try {
-        setLoading(true)
-        console.log(`Fetching debate info for session: ${selectedDebateId}`)
-
-        const res = await fetch(`http://localhost:8000/debates/${selectedDebateId}/info/`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        })
-
-        if (!res.ok) {
-          const errorText = await res.text()
-          console.error(`Failed to load debate info: ${res.status} - ${errorText}`)
-          if (res.status === 404) {
-            throw new Error(`Debate session not found.`)
-          }
-          throw new Error(`Failed to load debate info: ${res.status}`)
-        }
-
-        const data: BackendDebateInfo = await res.json()
-        console.log('Debate info loaded:', data)
-        setDebateInfo(data)
-        setError(null)
-
-      } catch (err: any) {
-        console.error("Error fetching debate info:", err)
-        setError(`Could not load debate session: ${err.message}`)
-      } finally {
-        setLoading(false)
-      }
+    if (!selectedDebateId) {
+      console.log("DEBUG: Bailing out because selectedDebateId is missing."); // DEBUG 3: Check the guard clause
+      return;
     }
 
-    fetchDebateInfo()
-  }, [selectedDebateId])
+    const fetchDebateInfo = async () => {
+      console.log("DEBUG: fetchDebateInfo function is about to run."); // DEBUG 4: Check if the async function starts
+      try {
+        setLoading(true);
+        const res = await makeAuthenticatedRequest(`http://localhost:8000/debates/${selectedDebateId}/info/`);
+
+        if (!res.ok) {
+          throw new Error(`Failed to load debate info: ${res.status}`);
+        }
+
+        const data: BackendDebateInfo = await res.json();
+        setDebateInfo(data);
+        setError(null);
+
+      } catch (err: any) {
+        console.error("DEBUG: CRITICAL - Error caught in fetchDebateInfo:", err); // DEBUG 5: Check for hidden errors
+        setError(`Could not load debate session: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDebateInfo();
+  }, [selectedDebateId]);
+
 
   // Poll for new messages and debate status
   useEffect(() => {
-    if (!selectedDebateId || !debateInfo) return
+    if (!selectedDebateId || !debateInfo) return;
 
     const fetchData = async () => {
       try {
-        // Use full_history endpoint to get persisted messages for any debate
-        const historyRes = await fetch(`http://localhost:8000/debates/${selectedDebateId}/full_history/`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        })
+        const historyRes = await makeAuthenticatedRequest(`http://localhost:8000/debates/${selectedDebateId}/full_history/`);
 
         if (!historyRes.ok) {
-          console.warn(`Failed to fetch messages: ${historyRes.status}`)
-          return
+          console.warn(`Failed to fetch messages: ${historyRes.status}`);
+          return;
         }
 
-        const historyData: BackendChatHistoryResponse = await historyRes.json()
+        const historyData: BackendChatHistoryResponse = await historyRes.json();
         if (historyData.messages && Array.isArray(historyData.messages)) {
-          setMessages(historyData.messages)
+          setMessages(historyData.messages);
         }
-        setIsDebateActive(historyData.is_active)
+        setIsDebateActive(historyData.is_active);
 
       } catch (err) {
-        console.error("Polling failed:", err)
+        console.error("Polling for messages failed:", err);
       }
-    }
+    };
 
-    // Initial fetch
-    fetchData()
+    fetchData(); // Initial fetch
 
     // Only poll if this is the current/active debate
     if (selectedDebateId === sessionId) {
-      const interval = setInterval(fetchData, 2000)
-      return () => clearInterval(interval)
+      const interval = setInterval(fetchData, 2000);
+      return () => clearInterval(interval);
     }
-  }, [selectedDebateId, debateInfo, sessionId])
+  }, [selectedDebateId, debateInfo, sessionId]);
 
   const handleSendMessage = async () => {
-    const content = messageInput.trim()
-    if (!content || !selectedDebateId) return
+    const content = messageInput.trim();
+    if (!content || !selectedDebateId) return;
     
-    // Only allow sending messages to the current debate session
     if (selectedDebateId !== sessionId) {
-      setError("You can only send messages to the current active debate.")
-      return
+      setError("You can only send messages to the current active debate.");
+      return;
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/debates/${selectedDebateId}/message/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: content }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error("Send message error response:", errText)
-        let errorMsg = `HTTP ${res.status}`
-        try {
-          const errJson = JSON.parse(errText)
-          errorMsg = errJson.detail || errorMsg
-        } catch (e) {
-          errorMsg = errText || errorMsg
-        }
-        throw new Error(errorMsg)
+      const sessionToken = localStorage.getItem("SESSION_TOKEN");
+      if (!sessionToken) {
+        setError("No session found. Please start a new debate.");
+        return;
       }
 
-      setMessageInput("")
-      setError(null)
+      const res = await makeAuthenticatedRequest(
+        `http://localhost:8000/debates/${selectedDebateId}/message/`,
+        {
+          method: "POST",
+          body: JSON.stringify({ message: content }),
+        }
+      );
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error("Access denied to this debate session.");
+        }
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      setMessageInput("");
+      setError(null);
 
     } catch (err: any) {
-      console.error("Failed to send message:", err)
-      setError(err.message || "Failed to send message")
+      console.error("Failed to send message:", err);
+      setError(err.message || "Failed to send message");
     }
+  };
+  if (sessionTokenError && !debateInfo) {
+    return (
+      <div className="h-screen bg-slate-900 flex items-center justify-center text-amber-400 p-6">
+        <div className="text-center">
+          <p className="text-lg mb-4">{sessionTokenError}</p>
+          <Link href="/debate/new">
+            <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
+              Start New Debate
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
-
   const handleDebateSelect = (debateId: string) => {
     setSelectedDebateId(debateId)
     // Update URL if different from current
@@ -322,7 +349,12 @@ export default function DebateRoomPage({ params }: { params: Promise<{ id: strin
               <div>
                 <h3 className="text-white font-medium">Your Councils</h3>
                 <p className="text-slate-400 text-sm">
-                  {sidebarLoading ? "Loading..." : `${previousDebates.length} debates`}
+                  {sidebarLoading 
+                    ? "Loading..." 
+                    : sessionTokenError 
+                      ? "Session expired" 
+                      : `${previousDebates.length} debates`
+                  }
                 </p>
               </div>
             </div>
@@ -333,6 +365,13 @@ export default function DebateRoomPage({ params }: { params: Promise<{ id: strin
             </Link>
           </div>
 
+          {/* Show session warning if needed */}
+          {sessionTokenError && (
+            <div className="mb-4 p-2 text-xs text-amber-400 bg-amber-900/20 border border-amber-800 rounded">
+              {sessionTokenError}
+            </div>
+          )}
+
           <div className="relative">
             <MessageCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
             <Input
@@ -340,6 +379,7 @@ export default function DebateRoomPage({ params }: { params: Promise<{ id: strin
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+              disabled={!!sessionTokenError}
             />
           </div>
         </div>

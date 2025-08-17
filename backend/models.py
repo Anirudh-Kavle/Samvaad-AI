@@ -46,6 +46,7 @@ class DebateInfoResponse(BaseModel):
     council_members: List[CouncilMemberInfo]
     message: str # A welcome message or status
     session_id: str
+    session_token: str 
 
 class ChatMessage(BaseModel):
     """
@@ -127,14 +128,13 @@ class DebateSession(Base):
     user_name = Column(String, nullable=False)
     topic = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    # Add fields for status, end time, etc. as needed later
-    # status = Column(String, default="active")
-    # ended_at = Column(DateTime, nullable=True)
-
+    # NEW: Add session token for privacy
+    session_token = Column(String, nullable=False, default=lambda: str(uuid.uuid4()))
     # Relationship to CouncilMember (one-to-many)
     council_members = relationship("CouncilMember", back_populates="debate_session", cascade="all, delete-orphan")
     # NEW: relationship to persisted chat messages
     messages = relationship("ChatMessageDB", back_populates="debate_session", cascade="all, delete-orphan", order_by="ChatMessageDB.timestamp")
+    
     def __repr__(self):
         return f"<DebateSession(id='{self.id}', topic='{self.topic}', user='{self.user_name}')>"
 

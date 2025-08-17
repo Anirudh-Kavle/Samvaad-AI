@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 import threading
 from sqlalchemy.orm import Session
@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from database import get_db
 from database import get_db, init_db, test_connection
 from sqlalchemy.orm import Session
-from services import create_debate_session, get_debate_session, list_debate_sessions, get_messages_for_session
+from services import create_debate_session, get_debate_session, list_debate_sessions_by_token, get_messages_for_session, verify_session_access
 from models import (
     DebateSetupRequest, 
     DebateInfoResponse, 
@@ -22,6 +22,7 @@ from models import (
     UserMessageRequest
 )
 from council_chamber_manager import CouncilChamberManager
+from pydantic import BaseModel
 
 # --- thread-safe active_debates ---
 active_debates: dict = {}
@@ -39,8 +40,42 @@ def _pop_active_debate(session_id: str):
     with _active_debates_lock:
         return active_debates.pop(session_id, None)
 
+
+def verify_access(session_id: str, session_token: str = Header(None, alias="X-Session-Token"), db: Session = Depends(get_db)):
+    """Dependency to verify session access"""
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Session token required")
+    
+    try:
+        uuid_obj = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+    
+    if not verify_session_access(db, uuid_obj, session_token):
+        raise HTTPException(status_code=403, detail="Access denied to this debate session")
+    
+    return uuid_obj
 # --- message serializer ---
 # Update your serialize_message function in backend/api.py
+
+class DebateSetupRequest(BaseModel):
+    user_name: str = "Participant"
+    groq_api_key: str
+    character_names: list[str]
+    topic: str
+    session_token: Optional[str] = None  # Optional for new debates
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_name": "Alex",
+                "groq_api_key": "gsk_...",
+                "character_names": ["Socrates", "Friedrich Nietzsche", "Maya Angelou"],
+                "topic": "The meaning of suffering",
+                "session_token": "optional-existing-token"
+            }
+        }
+
 
 def serialize_message(msg: Any) -> dict:
     """
@@ -163,7 +198,7 @@ app.add_middleware(
 )
 
 # --- Helper ---
-def _convert_manager_to_response_with_session(manager: CouncilChamberManager, session_id: str) -> DebateInfoResponse:
+def _convert_manager_to_response_with_session(manager: CouncilChamberManager, session_id: str, session_token: str) -> DebateInfoResponse:
     council_members_info = [
         CouncilMemberInfo(name=member.character_name, agent_name=member.agent.name)
         for member in manager.members
@@ -173,7 +208,8 @@ def _convert_manager_to_response_with_session(manager: CouncilChamberManager, se
         user_name=manager.user_name,
         topic=manager.topic,
         council_members=council_members_info,
-        message=f"🏛️ Council '{manager.topic}' is ready. Debate started in background."
+        message=f"🏛️ Council '{manager.topic}' is ready. Debate started in background.",
+        session_token=session_token
     )
 
 # --- Routes ---
@@ -189,11 +225,14 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
         raise HTTPException(status_code=400, detail="A topic is required.")
     if not debate_request.groq_api_key.strip(): # <--- Validate key presence
          raise HTTPException(status_code=400, detail="GROQ API Key is required.")
+    
+    session_token = debate_request.session_token or str(uuid.uuid4())
     db_debate = create_debate_session(
         db=db,
         user_name=debate_request.user_name,
         topic=debate_request.topic,
-        character_names=debate_request.character_names
+        character_names=debate_request.character_names,
+        session_token=session_token
     )
     session_id = str(db_debate.id)
     chamber_manager = CouncilChamberManager(
@@ -206,7 +245,11 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
     _set_active_debate(session_id, chamber_manager)
     logger.info(f"📌 Scheduling background task for session {session_id}")
     background_tasks.add_task(chamber_manager.start_debate_background_task)
-    return _convert_manager_to_response_with_session(chamber_manager, session_id)
+
+    # response = _convert_manager_to_response_with_session(chamber_manager, session_id)
+    # response.session_token = session_token  # Add this to your DebateInfoResponse model
+    # return response
+    return _convert_manager_to_response_with_session(chamber_manager, session_id, session_token)
 
 @app.get("/debates/{session_id}/status/")
 async def get_debate_status(session_id: str, db: Session = Depends(get_db)):
@@ -229,9 +272,9 @@ async def get_debate_status(session_id: str, db: Session = Depends(get_db)):
     }
 
 @app.get("/debates/{session_id}/history/", response_model=ChatHistoryResponse)
-async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
+async def get_chat_history(session_id: str, verified_id: uuid.UUID = Depends(verify_access), db: Session = Depends(get_db)):
     try:
-        uuid_obj = uuid.UUID(session_id)
+        uuid_obj = uuid.UUID(verified_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid session ID format.")
     db_debate = get_debate_session(db, uuid_obj)
@@ -245,7 +288,7 @@ async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
     return ChatHistoryResponse(messages=messages, is_active=True)
 
 @app.post("/debates/{session_id}/message/")
-async def send_user_message(session_id: str, user_message: UserMessageRequest, db: Session = Depends(get_db)):
+async def send_user_message(session_id: str, user_message: UserMessageRequest, verified_id: uuid.UUID = Depends(verify_access), db: Session = Depends(get_db)):
     try:
         uuid_obj = uuid.UUID(session_id)
     except ValueError:
@@ -285,11 +328,13 @@ if __name__ == "__main__":
 
 
 @app.get("/debates/")
-def list_all_debates(db: Session = Depends(get_db)):
+def list_all_debates(session_token: str = Header(None, alias="X-Session-Token"),db: Session = Depends(get_db)):
     """
     Return a lightweight list of all debate sessions for the sidebar.
     """
-    sessions = list_debate_sessions(db)
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Session token required in X-Session-Token header")
+    sessions = list_debate_sessions_by_token(db, session_token)
     return [
         {
             "session_id": str(s.id),
@@ -302,7 +347,7 @@ def list_all_debates(db: Session = Depends(get_db)):
     ]
 
 @app.get("/debates/{session_id}/full_history/", response_model=ChatHistoryResponse)
-def get_full_history(session_id: str, db: Session = Depends(get_db)):
+def get_full_history(session_id: str, verified_id: uuid.UUID = Depends(verify_access), db: Session = Depends(get_db)):
     """
     Retrieve the full persisted chat history for a debate session.
     This works even if the debate is no longer active.
@@ -312,7 +357,7 @@ def get_full_history(session_id: str, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid session id")
 
-    msgs = get_messages_for_session(db, uid)
+    msgs = get_messages_for_session(db, verified_id)
     items = [
         ChatMessage(
             sender=m.sender_name, 
@@ -325,6 +370,8 @@ def get_full_history(session_id: str, db: Session = Depends(get_db)):
     is_active = session_id in active_debates  # active_debates is your in-memory dict
 
     return ChatHistoryResponse(messages=items, is_active=is_active)
+
+
 
 
 @app.get("/debates/{session_id}/info/")
