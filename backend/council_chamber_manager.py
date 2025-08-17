@@ -210,13 +210,13 @@ class CouncilChamberManager:
         self.display_council_info()
         
         opening_prompt = f"""
-🏛️ The CouncilChamber convenes for a philosophical debate!
+🏛️ The Council convenes for a debate!
 Topic: "{self.topic}"
 
 Please begin by sharing your authentic perspective on this topic.
 Draw from your actual beliefs and experiences.
 
-{self.user_name}, you'll participate actively - send your thoughts via the API when prompted!
+{self.user_name}, you'll participate actively - send your thoughts when prompted!
 """
 
         try:

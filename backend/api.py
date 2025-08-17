@@ -10,6 +10,18 @@ from queue import Queue
 from models import ChatHistoryResponse, ChatMessage
 from contextlib import asynccontextmanager
 from database import get_db
+from database import get_db, init_db, test_connection
+from sqlalchemy.orm import Session
+from services import create_debate_session, get_debate_session, list_debate_sessions, get_messages_for_session
+from models import (
+    DebateSetupRequest, 
+    DebateInfoResponse, 
+    CouncilMemberInfo, 
+    ChatHistoryResponse,
+    ChatMessage,
+    UserMessageRequest
+)
+from council_chamber_manager import CouncilChamberManager
 
 # --- thread-safe active_debates ---
 active_debates: dict = {}
@@ -109,19 +121,6 @@ def serialize_message(msg: Any) -> dict:
         "sender": sender if sender else "Unknown",
         "message": message if message else "Empty message"
     }
-# --- imports ---
-from database import get_db, init_db, test_connection
-from sqlalchemy.orm import Session
-from services import create_debate_session, get_debate_session, list_debate_sessions, get_messages_for_session
-from models import (
-    DebateSetupRequest, 
-    DebateInfoResponse, 
-    CouncilMemberInfo, 
-    ChatHistoryResponse,
-    ChatMessage,
-    UserMessageRequest
-)
-from council_chamber_manager import CouncilChamberManager
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO)
@@ -130,7 +129,7 @@ logger = logging.getLogger(__name__)
 # --- Database Initialization ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🏛️ CouncilChamber API starting up...")
+    logger.info("🏛️ Samvaad.AI API starting up...")
     if not test_connection():
         logger.error("❌ Database connection failed. Please check your DATABASE_URL.")
         raise RuntimeError("Database connection failed")
@@ -141,13 +140,13 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ Database initialization failed: {e}")
         raise RuntimeError(f"Database initialization failed: {e}")
     yield
-    logger.info("🏛️ CouncilChamber API shutting down...")
+    logger.info("🏛️ Samvaad.AI API shutting down...")
     with _active_debates_lock:
         active_debates.clear()
 
 app = FastAPI(
-    title="CouncilChamber API",
-    description="API for the CouncilChamber - Character Debate Simulator",
+    title="Samvaad.AI API",
+    description="API for the Samvaad.AI - Character Debate Simulator",
     version="0.1.0",
     lifespan=lifespan
 )
@@ -180,7 +179,7 @@ def _convert_manager_to_response_with_session(manager: CouncilChamberManager, se
 # --- Routes ---
 @app.get("/")
 async def root():
-    return {"message": "🏛️ Welcome to the CouncilChamber API!"}
+    return {"message": "🏛️ Welcome to the Samvaad.AI API!"}
 
 @app.post("/debates/start/", response_model=DebateInfoResponse, status_code=201)
 async def start_debate(debate_request: DebateSetupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -314,8 +313,14 @@ def get_full_history(session_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid session id")
 
     msgs = get_messages_for_session(db, uid)
-    items = [ChatMessage(sender=m.sender_name, message=m.content) for m in msgs]
-
+    items = [
+        ChatMessage(
+            sender=m.sender_name, 
+            message=m.content,
+            timestamp=m.timestamp.isoformat() if m.timestamp else None 
+        ) 
+        for m in msgs
+    ]
     # Determine if debate is still active in memory
     is_active = session_id in active_debates  # active_debates is your in-memory dict
 

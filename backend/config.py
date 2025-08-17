@@ -20,7 +20,7 @@ if not GROQ_API_KEY:
 # --- Important: Fix the trailing space in base_url (already fixed in your original) ---
 CONFIG_LIST = [
     {
-        "model": "llama-3.3-70b-versatile",
+        "model": "moonshotai/kimi-k2-instruct",
         "api_key": GROQ_API_KEY,
         "base_url": "https://api.groq.com/openai/v1", # Ensure no trailing space
         "price": [0.0, 0.0]

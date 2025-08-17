@@ -26,6 +26,7 @@ interface BackendDebateInfo {
 
 interface BackendChatMessage {
   sender: string
+  timestamp?: string;
   message: string
 }
 
@@ -479,7 +480,16 @@ export default function DebateRoomPage({ params }: { params: Promise<{ id: strin
                     const isUser = msg.sender === debateInfo.user_name
                     const participant = participants.find(p => p.name === msg.sender) || { colorIndex: 1 }
                     const colors = getCharacterColors(participant.colorIndex, isUser)
-
+                    const formatTimestamp = (timestampStr?: string) => {
+                      if (!timestampStr) return "Unknown Time";
+                      try {
+                        const date = new Date(timestampStr);
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      } catch (e) {
+                        console.error("Error formatting time:", e);
+                        return "Unknown Time";
+                      }
+                    };
                     return (
                       <div key={index} className={`group ${isUser ? 'flex justify-end' : ''}`}>
                         <div className={`flex items-start space-x-3 max-w-[80%] ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -498,7 +508,7 @@ export default function DebateRoomPage({ params }: { params: Promise<{ id: strin
                           <div className={`flex-1 min-w-0 ${isUser ? 'text-right' : ''}`}>
                             <div className={`flex items-center space-x-2 mb-1 ${isUser ? 'flex-row-reverse justify-start' : ''}`}>
                               <span className="font-medium text-white text-base">{msg.sender}</span>
-                              <span className="text-sm text-slate-500">Now</span>
+                              <span className="text-sm text-slate-500">{formatTimestamp(msg.timestamp)}</span>
                             </div>
                             <div className={`rounded-2xl px-4 py-3 ${
                               isUser

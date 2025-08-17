@@ -53,6 +53,7 @@ class ChatMessage(BaseModel):
     """
     sender: str # Name of the agent or user who sent the message
     message: str # The content of the message
+    timestamp: Optional[datetime] = None
 
 class ChatHistoryResponse(BaseModel):
     """
