@@ -223,7 +223,7 @@ def _convert_manager_to_response_with_session(manager: CouncilChamberManager, se
 async def root():
     return {"message": "🏛️ Welcome to the Samvaad.AI API!"}
 
-@app.post("/debates/start/", response_model=DebateInfoResponse, status_code=201)
+@app.post("/debates/create/", response_model=DebateInfoResponse, status_code=201)
 async def start_debate(debate_request: DebateSetupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if not debate_request.character_names or len(debate_request.character_names) < 2:
         raise HTTPException(status_code=400, detail="At least 2 characters are required.")
