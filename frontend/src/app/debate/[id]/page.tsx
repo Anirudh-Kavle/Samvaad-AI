@@ -132,70 +132,78 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
 
   // Fetch debate metadata
   useEffect(() => {
-    console.log("DEBUG: useEffect for fetchDebateInfo is running. selectedDebateId is:", selectedDebateId); // DEBUG 2: Check if the effect runs
+      console.log("DEBUG: useEffect for fetchDebateInfo is running. selectedDebateId is:", selectedDebateId);
 
-    if (!selectedDebateId) {
-      console.log("DEBUG: Bailing out because selectedDebateId is missing."); // DEBUG 3: Check the guard clause
-      return;
-    }
-
-    const fetchDebateInfo = async () => {
-      console.log("DEBUG: fetchDebateInfo function is about to run."); // DEBUG 4: Check if the async function starts
-      try {
-        setLoading(true);
-        const res = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/info/`);
-
-        if (!res.ok) {
-          throw new Error(`Failed to load debate info: ${res.status}`);
-        }
-
-        const data: BackendDebateInfo = await res.json();
-        setDebateInfo(data);
-        setError(null);
-
-      } catch (err: any) {
-        console.error("DEBUG: CRITICAL - Error caught in fetchDebateInfo:", err); // DEBUG 5: Check for hidden errors
-        setError(`Could not load debate session: ${err.message}`);
-      } finally {
-        setLoading(false);
+      if (!selectedDebateId) {
+          console.log("DEBUG: Bailing out because selectedDebateId is missing.");
+          return;
       }
-    };
 
-    fetchDebateInfo();
+      const fetchDebateInfo = async () => {
+          console.log("DEBUG: fetchDebateInfo function is about to run.");
+          try {
+              setLoading(true);
+              // Use authenticated request for info endpoint too
+              const res = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/info/`);
+
+              if (!res.ok) {
+                  if (res.status === 401 || res.status === 403) {
+                      throw new Error("Access denied to this debate session");
+                  }
+                  throw new Error(`Failed to load debate info: ${res.status}`);
+              }
+
+              const data: BackendDebateInfo = await res.json();
+              setDebateInfo(data);
+              setError(null);
+
+          } catch (err: any) {
+              console.error("DEBUG: CRITICAL - Error caught in fetchDebateInfo:", err);
+              setError(`Could not load debate session: ${err.message}`);
+          } finally {
+              setLoading(false);
+          }
+      };
+
+      fetchDebateInfo();
   }, [selectedDebateId]);
 
 
   // Poll for new messages and debate status
   useEffect(() => {
-    if (!selectedDebateId || !debateInfo) return;
+      if (!selectedDebateId || !debateInfo) return;
 
-    const fetchData = async () => {
-      try {
-        const historyRes = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/full_history/`);
+      const fetchData = async () => {
+          try {
+              // Get both history and status in one call to avoid inconsistency
+              const historyRes = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/full_history/`);
 
-        if (!historyRes.ok) {
-          console.warn(`Failed to fetch messages: ${historyRes.status}`);
-          return;
-        }
+              if (!historyRes.ok) {
+                  console.warn(`Failed to fetch messages: ${historyRes.status}`);
+                  return;
+              }
 
-        const historyData: BackendChatHistoryResponse = await historyRes.json();
-        if (historyData.messages && Array.isArray(historyData.messages)) {
-          setMessages(historyData.messages);
-        }
-        setIsDebateActive(historyData.is_active);
+              const historyData: BackendChatHistoryResponse = await historyRes.json();
+              if (historyData.messages && Array.isArray(historyData.messages)) {
+                  setMessages(historyData.messages);
+              }
+              
+              // Use the is_active status from the history response consistently
+              setIsDebateActive(historyData.is_active);
 
-      } catch (err) {
-        console.error("Polling for messages failed:", err);
+          } catch (err) {
+              console.error("Polling for messages failed:", err);
+              // Don't update status on error to avoid blinking
+          }
+      };
+
+      fetchData(); // Initial fetch
+
+      // Only poll if this is the current/active debate
+      if (selectedDebateId === sessionId) {
+          const interval = setInterval(fetchData, 3000); // Increased interval to reduce blinking
+          return () => clearInterval(interval);
       }
-    };
-
-    fetchData(); // Initial fetch
-
-    // Only poll if this is the current/active debate
-    if (selectedDebateId === sessionId) {
-      const interval = setInterval(fetchData, 2000);
-      return () => clearInterval(interval);
-    }
   }, [selectedDebateId, debateInfo, sessionId]);
 
   const handleSendMessage = async () => {

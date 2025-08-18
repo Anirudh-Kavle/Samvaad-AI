@@ -339,13 +339,27 @@ if __name__ == "__main__":
 
 
 @app.get("/debates/")
-def list_all_debates(session_token: str = Header(None, alias="X-Session-Token"),db: Session = Depends(get_db)):
+def list_all_debates(session_token: str = Header(None, alias="X-Session-Token"), db: Session = Depends(get_db)):
     """
-    Return a lightweight list of all debate sessions for the sidebar.
+    Return all debates for the user who owns this session token
     """
     if not session_token:
         raise HTTPException(status_code=401, detail="Session token required in X-Session-Token header")
-    sessions = list_debate_sessions_by_token(db, session_token)
+    
+    # First, find any debate with this session token to get the user
+    sample_session = db.query(DebateSession).filter(DebateSession.session_token == session_token).first()
+    if not sample_session:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    
+    # Then get all debates for this user
+    user_sessions = (
+        db.query(DebateSession)
+        .options(joinedload(DebateSession.council_members))
+        .filter(DebateSession.user_name == sample_session.user_name)
+        .order_by(DebateSession.created_at.desc())
+        .all()
+    )
+    
     return [
         {
             "session_id": str(s.id),
@@ -354,7 +368,7 @@ def list_all_debates(session_token: str = Header(None, alias="X-Session-Token"),
             "created_at": s.created_at.isoformat(),
             "participants": [cm.name for cm in s.council_members],
         }
-        for s in sessions
+        for s in user_sessions
     ]
 
 @app.get("/debates/{session_id}/full_history/", response_model=ChatHistoryResponse)
@@ -386,7 +400,7 @@ def get_full_history(session_id: str, verified_id: uuid.UUID = Depends(verify_ac
 
 
 @app.get("/debates/{session_id}/info/")
-async def get_debate_info(session_id: str, db: Session = Depends(get_db)):
+async def get_debate_info(session_id: str, verified_id: uuid.UUID = Depends(verify_access), db: Session = Depends(get_db)):
     """
     Get basic debate session information for the frontend.
     """

@@ -30,52 +30,64 @@ export default function NewDebatePage() {
     setCharacters(newChars);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+// Replace your handleSubmit function in new/page.tsx with this:
+
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
+    
     if (!userName.trim()) return setError("Your name is required.");
     if (!apiKey.trim()) return setError("GROQ API Key is required.");
     if (!topic.trim()) return setError("Debate topic is required.");
+    
     const validChars = characters.filter(c => c.trim());
     if (validChars.length < 2) return setError("At least 2 characters are required.");
-
+    
     setLoading(true);
     console.log("Attempting to fetch from API URL:", apiUrl);
+    
     try {
-      const existingSessionToken = localStorage.getItem("SESSION_TOKEN");
-      const res = await fetch(`${apiUrl}/debates/create/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_name: userName,
-          groq_api_key: apiKey,
-          topic,
-          character_names: validChars,
-          session_token: existingSessionToken,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to start debate");
-      }
-
-      const data = await res.json();
-      const sessionId = data.session_id;
-      const sessionToken = data.session_token;
-      // Pass API key via localStorage (⚠️ for dev only)
-      localStorage.setItem("GROQ_API_KEY", apiKey);
-      localStorage.setItem("SESSION_TOKEN", sessionToken);
-      // Redirect to the debate room
-      window.location.href = `/debate/${sessionId}`;
+        // Always reuse existing session token OR create a new one for first-time users
+        let existingSessionToken = localStorage.getItem("SESSION_TOKEN");
+        
+        // If no token exists, create a new one (first-time user)
+        if (!existingSessionToken) {
+            existingSessionToken = crypto.randomUUID();
+            localStorage.setItem("SESSION_TOKEN", existingSessionToken);
+        }
+        
+        const res = await fetch(`${apiUrl}/debates/create/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_name: userName,
+                groq_api_key: apiKey,
+                topic,
+                character_names: validChars,
+                session_token: existingSessionToken, // Always use the same token
+            }),
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Failed to start debate");
+        }
+        
+        const data = await res.json();
+        const sessionId = data.session_id;
+        
+        // Store API key and keep the SAME session token
+        localStorage.setItem("GROQ_API_KEY", apiKey);
+        // Don't overwrite the session token - keep using the same one
+        
+        // Redirect to the debate room
+        window.location.href = `/debate/${sessionId}`;
     } catch (err: any) {
-      setError(err.message || "An error occurred");
+        setError(err.message || "An error occurred");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
-
+};
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl bg-slate-800 border-slate-700">
