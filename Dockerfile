@@ -50,4 +50,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 
 # Run the application
 # We no longer need '--chdir backend' because we copied the code into /app
-CMD ["gunicorn", "api:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-b", "0.0.0.0:8080", "--forwarded-allow-ips='*'", "--proxy-headers"]
+CMD ["gunicorn", "api:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-b", "0.0.0.0:8080", "--forwarded-allow-ips=*", "--proxy-headers"]
