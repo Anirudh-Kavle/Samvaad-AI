@@ -187,11 +187,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-origin_regex = r"https://samvaad-ai-silx.*\.vercel\.app|http://localhost:3000"
-
+allowed_origins = [
+    "https://samvaad-ai-silx.vercel.app",  # Your exact Vercel domain
+    "http://localhost:3000",               # Local development
+    "https://localhost:3000",              # Local development with HTTPS
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origin_regex,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
