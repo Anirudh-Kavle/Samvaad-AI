@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import uvicorn
+import re
 import uuid
 from typing import Dict, Any, Optional
 import logging
@@ -188,13 +189,17 @@ app = FastAPI(
 )
 
 allowed_origins = [
-    "https://samvaad-ai-silx.vercel.app",  # Your exact Vercel domain
+    "https://samvaad-ai-delta.vercel.app",  # Your exact Vercel domain
     "http://localhost:3000",               # Local development
     "https://localhost:3000",              # Local development with HTTPS
 ]
+
+#vercel_preview_pattern = r"https://samvaad.*vercel\.app"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    #allow_origin_regex: vercel_preview_pattern,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
