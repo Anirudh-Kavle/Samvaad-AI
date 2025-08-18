@@ -10,3 +10,4 @@ psycopg2-binary # For PostgreSQL connection
 # Optional but recommended for async operations (we'll use sync for now, but good to have)
 asyncpg
 groq
+gunicorn

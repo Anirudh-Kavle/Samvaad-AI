@@ -52,7 +52,7 @@ def init_db():
     
     # Create all tables in the database
     # This is equivalent to "Create Table" statements
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     print("✅ Database tables created/verified.")
 
 # --- Optional: Test database connection ---

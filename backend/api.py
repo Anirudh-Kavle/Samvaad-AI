@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
+import os
 import uvicorn
 import uuid
 from typing import Dict, Any, Optional
@@ -186,16 +187,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_origins = [o.strip() for o in allowed.split(",")] if allowed else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", "http://localhost:3001",
-        "http://127.0.0.1:3000", "http://127.0.0.1:3001"
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/healthz", status_code=200)
+async def health_check():
+    return {"status": "ok"}
 
 # --- Helper ---
 def _convert_manager_to_response_with_session(manager: CouncilChamberManager, session_id: str, session_token: str) -> DebateInfoResponse:

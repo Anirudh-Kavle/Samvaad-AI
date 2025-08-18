@@ -1,0 +1,16 @@
+# docker-compose.yml
+
+version: '3.8' # Specifies the version of the Docker Compose file format
+
+services:
+  # This is the name of our service, you can call it whatever you like
+  backend:
+    # Tells Docker Compose to build the image from the Dockerfile in the current directory
+    build: .
+    platform: linux/amd64 # Ensures it builds for the correct platform, just like buildx
+    ports:
+      # Maps port 8080 on your Mac to port 8080 in the container
+      - "8080:8080"
+    # This is the magic part! It automatically loads the .env file
+    env_file:
+      - ./backend/.env # IMPORTANT: Make sure this path is correct!
