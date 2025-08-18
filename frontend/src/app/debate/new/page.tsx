@@ -44,7 +44,7 @@ export default function NewDebatePage() {
     console.log("Attempting to fetch from API URL:", apiUrl);
     try {
       const existingSessionToken = localStorage.getItem("SESSION_TOKEN");
-      const res = await fetch(`${apiUrl}/debates/create`, {
+      const res = await fetch(`${apiUrl}/debates/create/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
