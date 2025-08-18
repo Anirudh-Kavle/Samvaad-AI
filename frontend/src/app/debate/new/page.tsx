@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import Link from "next/link";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL; 
 export default function NewDebatePage() {
   const [userName, setUserName] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -43,7 +44,7 @@ export default function NewDebatePage() {
 
     try {
       const existingSessionToken = localStorage.getItem("SESSION_TOKEN");
-      const res = await fetch("http://localhost:8000/debates/start/", {
+      const res = await fetch(`${apiUrl}/debates/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

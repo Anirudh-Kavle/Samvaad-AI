@@ -3,3 +3,4 @@ __pycache__/
 
 # Ignore env files (if you want)
 .env
+.env.local
