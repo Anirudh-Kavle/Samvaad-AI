@@ -188,7 +188,7 @@ app = FastAPI(
 )
 
 origins = [
-    "https://samvaad-ai-silx.vercel.app/", # IMPORTANT: Replace with your actual Vercel URL
+    "https://samvaad-ai-silx.vercel.app", # IMPORTANT: Replace with your actual Vercel URL
     "http://localhost:3000", # Good to keep for local development
 ]
 
