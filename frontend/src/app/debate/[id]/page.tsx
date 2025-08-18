@@ -108,7 +108,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
           return;
         }
 
-        const res = await makeAuthenticatedRequest(`${apiUrl}/debates/`);
+        const res = await makeAuthenticatedRequest(`${apiUrl}/debates`);
         if (res.ok) {
           const debates: PreviousDebate[] = await res.json();
           setPreviousDebates(debates);
@@ -143,7 +143,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
       console.log("DEBUG: fetchDebateInfo function is about to run."); // DEBUG 4: Check if the async function starts
       try {
         setLoading(true);
-        const res = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/info/`);
+        const res = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/info`);
 
         if (!res.ok) {
           throw new Error(`Failed to load debate info: ${res.status}`);
@@ -171,7 +171,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
 
     const fetchData = async () => {
       try {
-        const historyRes = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/full_history/`);
+        const historyRes = await makeAuthenticatedRequest(`${apiUrl}/debates/${selectedDebateId}/full_history`);
 
         if (!historyRes.ok) {
           console.warn(`Failed to fetch messages: ${historyRes.status}`);
@@ -215,7 +215,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
       }
 
       const res = await makeAuthenticatedRequest(
-        `${apiUrl}/debates/${selectedDebateId}/message/`,
+        `${apiUrl}/debates/${selectedDebateId}/message`,
         {
           method: "POST",
           body: JSON.stringify({ message: content }),
