@@ -41,7 +41,7 @@ export default function NewDebatePage() {
     if (validChars.length < 2) return setError("At least 2 characters are required.");
 
     setLoading(true);
-
+    console.log("Attempting to fetch from API URL:", apiUrl);
     try {
       const existingSessionToken = localStorage.getItem("SESSION_TOKEN");
       const res = await fetch(`${apiUrl}/debates/create`, {
