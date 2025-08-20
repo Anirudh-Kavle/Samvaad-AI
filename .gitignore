@@ -1,4 +1,4 @@
-backend/__pycache__
+**/__pycache__
 *.pyc
 
 # Ignore env files (if you want)
