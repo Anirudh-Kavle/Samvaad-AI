@@ -7,9 +7,9 @@ import uuid
 from typing import Dict, Any, Optional
 import logging
 import threading
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from queue import Queue
-from models import ChatHistoryResponse, ChatMessage
+from models import ChatHistoryResponse, ChatMessage, DebateSession
 from contextlib import asynccontextmanager
 from database import get_db
 from database import get_db, init_db, test_connection
@@ -77,8 +77,6 @@ class DebateSetupRequest(BaseModel):
                 "session_token": "optional-existing-token"
             }
         }
-
-
 def serialize_message(msg: Any) -> dict:
     """
     Improved message serialization that properly extracts sender names from AutoGen messages.
@@ -192,14 +190,16 @@ allowed_origins = [
     "https://samvaad-ai-delta.vercel.app",  # Your exact Vercel domain
     "http://localhost:3000",               # Local development
     "https://localhost:3000",              # Local development with HTTPS
+    "https://samvaad-ai-backend-service-185687823940.asia-south1.run.app",
+    "http://samvaad-ai-backend-service-185687823940.asia-south1.run.app",
 ]
 
-#vercel_preview_pattern = r"https://samvaad.*vercel\.app"
+vercel_preview_pattern = r"https://samvaad.*vercel\.app"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    #allow_origin_regex: vercel_preview_pattern,
+    allow_origin_regex: vercel_preview_pattern,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
