@@ -199,7 +199,7 @@ vercel_preview_pattern = r"https://samvaad.*vercel\.app"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex: vercel_preview_pattern,
+    allow_origin_regex= vercel_preview_pattern,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
