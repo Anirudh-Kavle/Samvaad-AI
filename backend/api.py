@@ -265,6 +265,10 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
         character_names=debate_request.character_names,
         session_token=session_token
     )
+    # ADD THESE DEBUG LINES
+    print(f"DEBUG: Created debate session with ID: {db_debate.id}")
+    print(f"DEBUG: Session token: {db_debate.session_token}")
+    print(f"DEBUG: Number of council members: {len(db_debate.council_members)}")
     session_id = str(db_debate.id)
     chamber_manager = CouncilChamberManager(
         session_id=session_id,
@@ -379,7 +383,7 @@ def list_all_debates(session_token: str = Header(None, alias="X-Session-Token"),
         .order_by(DebateSession.created_at.desc())
         .all()
     )
-    
+    print(f"DEBUG: Found {len(user_sessions)} sessions for user {sample_session.user_name}")
     return [
         {
             "session_id": str(s.id),
