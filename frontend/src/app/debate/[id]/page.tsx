@@ -62,6 +62,7 @@ interface Character {
 }
 
 export default function DebateRoomPage({ params }: { params: Promise<{ id: string }> }) {
+  console.log("API URL being used:", process.env.NEXT_PUBLIC_API_URL);
   const resolvedParams = use(params)
   const { id: sessionId } = resolvedParams
   console.log("DEBUG: sessionId from URL is:", sessionId);
