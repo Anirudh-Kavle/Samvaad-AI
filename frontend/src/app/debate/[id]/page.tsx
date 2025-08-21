@@ -108,8 +108,10 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
           setSidebarLoading(false);
           return;
         }
-
+        const fullUrl = `${apiUrl}/debates`;
+        console.log("EXACT URL ABOUT TO FETCH:", fullUrl); 
         const res = await makeAuthenticatedRequest(`${apiUrl}/debates`);
+        
         if (res.ok) {
           const debates: PreviousDebate[] = await res.json();
           setPreviousDebates(debates);
