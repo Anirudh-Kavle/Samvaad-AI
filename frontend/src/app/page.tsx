@@ -86,9 +86,6 @@ export default function LandingPage() {
               >
                 View Demo
               </Button>
-              <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800 bg-transparent">
-                Sign In
-              </Button>
             </div>
           </div>
         </div>
@@ -257,48 +254,18 @@ export default function LandingPage() {
             Whether you're exploring philosophy, testing ideas, or just curious about how Einstein would react to modern
             memes—your council awaits.
           </p>
-          <Button
-            size="lg"
-            className="bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 hover:from-amber-500 hover:to-amber-700 text-xl px-12 py-4"
-            onClick={() => (window.location.href = "/debate")}
-          >
-            Create Your First Council
-            <ArrowRight className="ml-2 h-6 w-6" />
-          </Button>
-          <p className="text-slate-400 mt-4">Free to start • No credit card required</p>
+          <Link href="/debate/new">
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 hover:from-amber-500 hover:to-amber-700 text-xl px-12 py-4"
+              // onClick={() => (window.location.href = "/debate")}
+            >
+              Create Your First Council
+              <ArrowRight className="ml-2 h-6 w-6" />
+            </Button>
+          </Link>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-700 bg-slate-900 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
-                <Users className="h-5 w-5 text-slate-900" />
-              </div>
-              <span className="text-xl font-bold text-white">Samvaad.AI</span>
-            </div>
-            <div className="flex space-x-6 text-slate-400">
-              <a href="#" className="hover:text-white transition-colors">
-                About
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Privacy
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Terms
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Contact
-              </a>
-            </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-slate-700 text-center text-slate-400">
-            <p>&copy; 2025 Samvaad.AI. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

@@ -94,7 +94,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <CardHeader>
           <CardTitle className="text-white">Start a New Debate</CardTitle>
           <CardDescription className="text-slate-400">
-            Choose your council and topic to begin a philosophical debate.
+            Choose your council and topic to begin a debate.
           </CardDescription>
         </CardHeader>
 
@@ -171,8 +171,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 size="sm"
                 onClick={addCharacter}
                 disabled={characters.length >= 6}
-                className="text-slate-300 border-slate-600 hover:bg-slate-700"
-              >
+                className="text-slate-300 border-slate-600 bg-slate-700 hover:bg-slate-600 hover:text-white hover:border-slate-500 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Character
               </Button>

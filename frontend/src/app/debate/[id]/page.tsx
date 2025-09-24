@@ -634,7 +634,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
               <CardContent className="p-4">
                 <h4 className="text-white font-medium text-sm mb-2">{debateInfo.topic}</h4>
                 <p className="text-slate-400 text-xs leading-relaxed">
-                  A philosophical council of {participants.length - 1} characters discussing this topic.
+                  A council of {participants.length} characters discussing this topic.
                 </p>
               </CardContent>
             </Card>
