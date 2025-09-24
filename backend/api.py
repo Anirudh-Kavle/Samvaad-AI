@@ -379,7 +379,7 @@ def list_all_debates(session_token: str = Header(None, alias="X-Session-Token"),
     user_sessions = (
         db.query(DebateSession)
         .options(joinedload(DebateSession.council_members))
-        .filter(DebateSession.user_name == sample_session.user_name)
+        .filter(DebateSession.session_token == session_token)
         .order_by(DebateSession.created_at.desc())
         .all()
     )

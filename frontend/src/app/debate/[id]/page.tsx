@@ -617,9 +617,6 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
               <div className="p-4 border-t border-slate-700 bg-slate-800">
                 <div className="text-center text-slate-400 text-sm">
                   You're viewing a historical debate. 
-                  <Link href={`/debate/${sessionId}`} className="text-amber-400 hover:text-amber-300 ml-1">
-                    Return to current debate
-                  </Link>
                 </div>
               </div>
             )}
