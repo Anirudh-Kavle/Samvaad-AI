@@ -1,6 +1,8 @@
 # Samvaad.AI - Character Debate Simulator 
 Samvaad.AI is a web application that allows users to create dynamic, AI-powered debates between any 2-6 historical figures, fictional characters, or pop culture icons. You don't just watch these debates, you actively participate as a council member, engaging in real-time conversation with personalities from across time and space.
 
+**Live Demo**: [samvaad-ai-delta.vercel.app](https://samvaad-ai-delta.vercel.app/) 
+
 ## Key Features 
 
 #### Live, Multi-Agent Debates 
@@ -61,6 +63,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 npm run dev
 ```
+
 
 
 
