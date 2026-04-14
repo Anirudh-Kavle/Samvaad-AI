@@ -62,7 +62,7 @@ export default function LandingPage() {
       icon: <MessageCircle className="h-6 w-6" />,
       title: "Reality Check Councils",
       description: "Present your dating problems to Cleopatra, Barney Stinson, and Jane Austen",
-      example: "Ancient seduction mastery meets modern pickup culture and romantic literature",
+      example: "Classic wisdom, modern perspective, and literary brilliance combined",
     },
   ]
 
@@ -236,7 +236,7 @@ export default function LandingPage() {
 
       {/* Example Debate Preview */}
       {/* Background Image Section */}
-      <h2 className="text-3xl font-bold text-white mb-4 text-center mb-12">Food Cold. Takes Hot.</h2>
+
       <section className="relative w-full h-[700px] bg-[#1A2539] flex items-center justify-center">
         <img
           src="/for_esteemed_patron.png"
