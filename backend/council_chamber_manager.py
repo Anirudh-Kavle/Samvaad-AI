@@ -81,7 +81,7 @@ class QueuedUserProxyAgent(autogen.UserProxyAgent):
 class CouncilChamberManager:
     """Manages the philosophical debate between dynamically selected characters"""
 
-    def __init__(self, session_id: str, user_name: str, character_names: List[str], topic: str, groq_api_key: str):
+    def __init__(self, session_id: str, user_name: str, character_names: List[str], topic: str, groq_api_key: str, on_finish=None):
         # Normalize session_id so it's always a UUID object
         if isinstance(session_id, str):
             session_id = uuid.UUID(session_id)
@@ -101,6 +101,7 @@ class CouncilChamberManager:
         self.chat_result = None
         self.background_thread = None
         self.stop_requested = False
+        self.on_finish = on_finish
 
  # --- Create LLM Config with User's API Key ---
         self.llm_config_with_key = LLM_CONFIG.copy()
@@ -186,6 +187,7 @@ class CouncilChamberManager:
             return
 
         logger.info(f"Starting background debate task for session {self.session_id}")
+        self.is_running = True
         
         # Start the debate in a separate thread to avoid blocking the FastAPI event loop
         self.background_thread = threading.Thread(
@@ -236,6 +238,8 @@ Draw from your actual beliefs and experiences.
             self.is_waiting_for_input = False
             self.current_prompt = None
             logger.info(f"Debate thread finished for session {self.session_id}")
+            if self.on_finish:
+                self.on_finish(str(self.session_id))
 
     def start_debate(self):
         """
@@ -356,15 +360,15 @@ Draw from your actual beliefs and experiences.
                         timestamp=datetime.now(timezone.utc)
                     )
                     saved += 1
+                    self.last_persisted_index += 1
 
                 except Exception as e:
                     logger.error(f"[{self.session_id}] Failed saving message {i}: {e}", exc_info=True)
-                    continue
+                    db.rollback()
+                    break
 
             if saved:
                 logger.info(f"[{self.session_id}] Successfully persisted {saved} messages.")
-            self.last_persisted_index += len(new_msgs)
-            
         except Exception as e:
             logger.error(f"[{self.session_id}] Error in persist_new_messages: {e}", exc_info=True)
         finally:
@@ -437,36 +441,6 @@ Draw from your actual beliefs and experiences.
         
         # Last resort
         return ""
-
-        db: SASession = SessionLocal()
-        try:
-            saved = 0
-            for m in new_msgs:
-                try:
-                    sender = _extract_sender(m) or "unknown"
-                    content = _extract_content(m) or ""
-                    preview = content.replace("\n", " ")[:180]
-
-                    logger.info(f"[{self.session_id}] Saving message: sender={sender}, content_preview={preview!r}")
-
-                    save_chat_message(
-                        db=db,
-                        session_id=self.session_id if isinstance(self.session_id, uuid.UUID) else uuid.UUID(str(self.session_id)),
-                        sender=str(sender),
-                        content=str(content),
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    saved += 1
-
-                except Exception:
-                    logger.error(f"[{self.session_id}] Failed saving one message. raw_repr={repr(m)} type={type(m)}", exc_info=True)
-                    continue
-
-            if saved:
-                logger.info(f"[{self.session_id}] Persisted {saved} messages.")
-            self.last_persisted_index += len(new_msgs)
-        finally:
-            db.close()
 
 
 def debug_message_structure(self):

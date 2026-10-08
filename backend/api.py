@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from fastapi.responses import JSONResponse
 import uvicorn
 import re
 import uuid
@@ -9,7 +8,6 @@ from typing import Dict, Any, Optional
 import logging
 import threading
 from sqlalchemy.orm import Session, joinedload
-from queue import Queue
 from models import ChatHistoryResponse, ChatMessage, DebateSession
 from contextlib import asynccontextmanager
 from database import get_db
@@ -25,7 +23,6 @@ from models import (
     UserMessageRequest
 )
 from council_chamber_manager import CouncilChamberManager
-from pydantic import BaseModel
 
 # --- thread-safe active_debates ---
 active_debates: dict = {}
@@ -58,32 +55,10 @@ def verify_access(session_id: str, session_token: str = Header(None, alias="X-Se
         raise HTTPException(status_code=403, detail="Access denied to this debate session")
     
     return uuid_obj
-# --- message serializer ---
-# Update your serialize_message function in backend/api.py
-
-class DebateSetupRequest(BaseModel):
-    user_name: str = "Participant"
-    groq_api_key: str
-    character_names: list[str]
-    topic: str
-    session_token: Optional[str] = None  # Optional for new debates
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "user_name": "Alex",
-                "groq_api_key": "gsk_...",
-                "character_names": ["Socrates", "Friedrich Nietzsche", "Maya Angelou"],
-                "topic": "The meaning of suffering",
-                "session_token": "optional-existing-token"
-            }
-        }
 def serialize_message(msg: Any) -> dict:
     """
     Improved message serialization that properly extracts sender names from AutoGen messages.
     """
-    print(f"DEBUG: Serializing message - Type: {type(msg)}, Content: {repr(msg)}")
-    
     if isinstance(msg, dict):
         # AutoGen messages typically have 'name' for sender and 'content' for message
         sender = None
@@ -109,8 +84,6 @@ def serialize_message(msg: Any) -> dict:
             message = msg['message']
         elif 'text' in msg and msg['text']:
             message = msg['text']
-        
-        print(f"DEBUG: Extracted - Sender: '{sender}', Message preview: '{str(message)[:100]}...'")
         
         return {
             "sender": sender if sender else "Unknown",
@@ -150,8 +123,6 @@ def serialize_message(msg: Any) -> dict:
         except Exception:
             pass
         message = str(msg)
-    
-    print(f"DEBUG: Final result - Sender: '{sender}', Message preview: '{str(message)[:100]}...'")
     
     return {
         "sender": sender if sender else "Unknown",
@@ -206,24 +177,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    response = JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
-    
-    # Add CORS headers to error responses
-    origin = request.headers.get("origin")
-    if origin:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-    
-    return response
-
-
 @app.get("/healthz", status_code=200)
 async def health_check():
     return {"status": "ok"}
@@ -265,10 +218,6 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
         character_names=debate_request.character_names,
         session_token=session_token
     )
-    # ADD THESE DEBUG LINES
-    print(f"DEBUG: Created debate session with ID: {db_debate.id}")
-    print(f"DEBUG: Session token: {db_debate.session_token}")
-    print(f"DEBUG: Number of council members: {len(db_debate.council_members)}")
     session_id = str(db_debate.id)
     chamber_manager = CouncilChamberManager(
         session_id=session_id,
@@ -276,6 +225,7 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
         character_names=debate_request.character_names,
         topic=debate_request.topic,
         groq_api_key=debate_request.groq_api_key,
+        on_finish=lambda _: _pop_active_debate(session_id),
     )
     _set_active_debate(session_id, chamber_manager)
     logger.info(f"📌 Scheduling background task for session {session_id}")
@@ -287,17 +237,16 @@ async def start_debate(debate_request: DebateSetupRequest, background_tasks: Bac
     return _convert_manager_to_response_with_session(chamber_manager, session_id, session_token)
 
 @app.get("/debates/{session_id}/status/")
-async def get_debate_status(session_id: str, db: Session = Depends(get_db)):
-    try:
-        uuid_obj = uuid.UUID(session_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid session ID format.")
-    db_debate = get_debate_session(db, uuid_obj)
-    if not db_debate:
-        raise HTTPException(status_code=404, detail="Debate session not found in database.")
+async def get_debate_status(session_id: str, verified_id: uuid.UUID = Depends(verify_access), db: Session = Depends(get_db)):
     manager = _get_active_debate(session_id)
     if not manager:
-        raise HTTPException(status_code=404, detail="Debate session manager not found in memory.")
+        return {
+            "session_id": session_id,
+            "is_running": False,
+            "is_waiting_for_input": False,
+            "message_count": len(get_messages_for_session(db, verified_id)),
+            "current_prompt": None,
+        }
     return {
         "session_id": session_id,
         "is_running": manager.is_running,
@@ -318,9 +267,12 @@ async def get_chat_history(session_id: str, verified_id: uuid.UUID = Depends(ver
     manager = _get_active_debate(session_id)
     if not manager:
         return ChatHistoryResponse(messages=[], is_active=False)
-    raw_messages = manager.get_chat_history() or []
-    messages = [ChatMessage(**serialize_message(m)) for m in raw_messages if serialize_message(m)["message"]]
-    return ChatHistoryResponse(messages=messages, is_active=True)
+    messages = []
+    for raw_message in manager.get_chat_history() or []:
+        message = serialize_message(raw_message)
+        if message["message"]:
+            messages.append(ChatMessage(**message))
+    return ChatHistoryResponse(messages=messages, is_active=manager.is_running)
 
 @app.post("/debates/{session_id}/message/")
 async def send_user_message(session_id: str, user_message: UserMessageRequest, verified_id: uuid.UUID = Depends(verify_access), db: Session = Depends(get_db)):
@@ -336,9 +288,6 @@ async def send_user_message(session_id: str, user_message: UserMessageRequest, v
         raise HTTPException(status_code=404, detail="Active debate session not found.")
     if not manager.is_running:
         raise HTTPException(status_code=400, detail="Debate session is not active.")
-    # always enqueue, don't block on is_waiting_for_input
-    if not hasattr(manager, "input_queue") or manager.input_queue is None:
-        manager.input_queue = Queue()
     manager.input_queue.put(user_message.message)
     return {
         "message": "Message enqueued successfully",
@@ -347,11 +296,7 @@ async def send_user_message(session_id: str, user_message: UserMessageRequest, v
     }
 
 @app.delete("/debates/{session_id}/")
-async def stop_debate(session_id: str, db: Session = Depends(get_db)):
-    try:
-        uuid_obj = uuid.UUID(session_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid session ID format.")
+async def stop_debate(session_id: str, _: uuid.UUID = Depends(verify_access)):
     manager = _pop_active_debate(session_id)
     if manager:
         manager.stop_debate()
@@ -416,7 +361,8 @@ def get_full_history(session_id: str, verified_id: uuid.UUID = Depends(verify_ac
         for m in msgs
     ]
     # Determine if debate is still active in memory
-    is_active = session_id in active_debates  # active_debates is your in-memory dict
+    manager = _get_active_debate(session_id)
+    is_active = bool(manager and manager.is_running)
 
     return ChatHistoryResponse(messages=items, is_active=is_active)
 

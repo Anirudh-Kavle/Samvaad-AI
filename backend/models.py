@@ -1,7 +1,7 @@
 # models.py
 
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import Annotated, List, Optional
 # --- Import SQLAlchemy parts ---
 from sqlalchemy import Column, String, Text, UUID, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
@@ -14,10 +14,11 @@ class DebateSetupRequest(BaseModel):
     """
     Model for the request data to initiate a debate.
     """
-    user_name: str = "Participant"
-    groq_api_key: str
-    character_names: List[str] # List of character names to include
-    topic: str # The debate topic
+    user_name: Annotated[str, Field(min_length=1, max_length=100)] = "Participant"
+    groq_api_key: Annotated[str, Field(min_length=1, max_length=512)]
+    character_names: Annotated[List[Annotated[str, Field(min_length=1, max_length=120)]], Field(min_length=2, max_length=6)]
+    topic: Annotated[str, Field(min_length=1, max_length=4_000)]
+    session_token: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
 
     class Config:
         # Example for API documentation
@@ -69,7 +70,7 @@ class UserMessageRequest(BaseModel):
     """
     Model for sending a message from the user during an active debate.
     """
-    message: str
+    message: Annotated[str, Field(min_length=1, max_length=4_000)]
 
     class Config:
         json_schema_extra = {
@@ -137,7 +138,5 @@ class DebateSession(Base):
     
     def __repr__(self):
         return f"<DebateSession(id='{self.id}', topic='{self.topic}', user='{self.user_name}')>"
-
-
 
 
