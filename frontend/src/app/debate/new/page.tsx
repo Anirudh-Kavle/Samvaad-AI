@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import Link from "next/link";
+import { apiUrl } from "@/lib/api";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL; 
 export default function NewDebatePage() {
   const [userName, setUserName] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -69,8 +69,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         });
         
         if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "Failed to start debate");
+            const err = await res.json().catch(() => null);
+            throw new Error(err?.detail || `Failed to start debate (${res.status})`);
         }
         
         const data = await res.json();

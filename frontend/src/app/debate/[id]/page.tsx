@@ -4,12 +4,11 @@
 import { useState, useEffect, use } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Send, MessageCircle, UserPlus, MoreHorizontal, X, Clock, Users } from "lucide-react"
+import { apiUrl } from "@/lib/api"
+import { Send, MessageCircle, X, Clock, Users, PencilLine } from "lucide-react"
 import Link from "next/link"
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 // Interfaces matching backend models
 interface CouncilMemberInfo {
   name: string
@@ -251,9 +250,9 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
   };
   if (sessionTokenError && !debateInfo) {
     return (
-      <div className="h-screen bg-slate-900 flex items-center justify-center text-amber-400 p-6">
-        <div className="text-center">
-          <p className="text-lg mb-4">{sessionTokenError}</p>
+      <div className="min-h-screen grid place-items-center bg-[#f5efdf] p-6 text-black">
+        <div className="max-w-md border-2 border-black bg-[#fffaf0] p-8 text-center shadow-[6px_6px_0_#000]">
+          <p className="font-mono text-lg font-bold mb-4">{sessionTokenError}</p>
           <Link href="/debate/new">
             <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
               Start New Debate
@@ -300,18 +299,18 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
     : []
 
   const getCharacterColors = (colorIndex: number, isUser: boolean = false) => {
-    if (isUser) return { bg: "bg-amber-500", text: "text-slate-900", indicator: "bg-amber-500" }
+    if (isUser) return { bg: "bg-[#f7b538]", text: "text-black", indicator: "bg-[#f7b538]" }
 
     const colorMap = {
-      1: { bg: "bg-blue-600", text: "text-white", indicator: "bg-blue-500" },
-      2: { bg: "bg-green-600", text: "text-white", indicator: "bg-green-500" },
-      3: { bg: "bg-purple-600", text: "text-white", indicator: "bg-purple-500" },
-      4: { bg: "bg-red-600", text: "text-white", indicator: "bg-red-500" },
-      5: { bg: "bg-indigo-600", text: "text-white", indicator: "bg-indigo-500" },
-      6: { bg: "bg-pink-600", text: "text-white", indicator: "bg-pink-500" },
-      7: { bg: "bg-orange-600", text: "text-white", indicator: "bg-orange-500" },
-      8: { bg: "bg-teal-600", text: "text-white", indicator: "bg-teal-500" },
-      9: { bg: "bg-cyan-600", text: "text-white", indicator: "bg-cyan-500" },
+      1: { bg: "bg-[#78c7ff]", text: "text-black", indicator: "bg-[#78c7ff]" },
+      2: { bg: "bg-[#bbdf63]", text: "text-black", indicator: "bg-[#bbdf63]" },
+      3: { bg: "bg-[#c4a6ff]", text: "text-black", indicator: "bg-[#c4a6ff]" },
+      4: { bg: "bg-[#ef6a67]", text: "text-black", indicator: "bg-[#ef6a67]" },
+      5: { bg: "bg-[#ff9dc7]", text: "text-black", indicator: "bg-[#ff9dc7]" },
+      6: { bg: "bg-[#f7b538]", text: "text-black", indicator: "bg-[#f7b538]" },
+      7: { bg: "bg-[#78c7ff]", text: "text-black", indicator: "bg-[#78c7ff]" },
+      8: { bg: "bg-[#bbdf63]", text: "text-black", indicator: "bg-[#bbdf63]" },
+      9: { bg: "bg-[#c4a6ff]", text: "text-black", indicator: "bg-[#c4a6ff]" },
     }
 
     return colorMap[colorIndex as keyof typeof colorMap] || colorMap[1]
@@ -331,9 +330,9 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
 
   if (error && !debateInfo) {
     return (
-      <div className="h-screen bg-slate-900 flex items-center justify-center text-red-400 p-6">
-        <div className="text-center">
-          <p className="text-lg mb-4">{error}</p>
+      <div className="min-h-screen grid place-items-center bg-[#f5efdf] p-6 text-black">
+        <div className="max-w-md border-2 border-black bg-[#fffaf0] p-8 text-center shadow-[6px_6px_0_#000]">
+          <p className="font-mono text-lg font-bold mb-4">{error}</p>
           <Link href="/debate/new">
             <Button variant="outline" className="text-slate-300 border-slate-600">
               <X className="h-4 w-4 mr-2" />
@@ -346,20 +345,20 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
   }
 
   return (
-    <div className="h-screen bg-slate-900 flex">
+    <div className="h-screen overflow-hidden bg-[#f5efdf] text-black lg:flex">
       {/* Left Sidebar - Previous Debates */}
-      <div className="w-80 bg-slate-800 border-r border-slate-700 flex flex-col">
-        <div className="p-4 border-b border-slate-700">
+      <aside className="hidden w-80 shrink-0 flex-col border-r-2 border-black bg-[#fffaf0] lg:flex">
+        <div className="border-b-2 border-black p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-amber-500 text-slate-900">
+                <AvatarFallback className="bg-[#f7b538] text-black">
                   {debateInfo?.user_name.charAt(0).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="text-white font-medium">Your Councils</h3>
-                <p className="text-slate-400 text-sm">
+                <h3 className="font-serif text-xl font-black tracking-[-0.04em]">Council archive</h3>
+                <p className="font-mono text-xs font-bold uppercase">
                   {sidebarLoading 
                     ? "Loading..." 
                     : sessionTokenError 
@@ -370,7 +369,7 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
               </div>
             </div>
             <Link href="/debate/new">
-              <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white h-8 w-8 p-0">
+              <Button size="icon-sm" variant="ghost" className="text-black">
                 <MessageCircle className="h-4 w-4" />
               </Button>
             </Link>
@@ -378,18 +377,18 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
 
           {/* Show session warning if needed */}
           {sessionTokenError && (
-            <div className="mb-4 p-2 text-xs text-amber-400 bg-amber-900/20 border border-amber-800 rounded">
+            <div className="mb-4 border-2 border-black bg-[#f7b538] p-2 font-mono text-xs font-bold">
               {sessionTokenError}
             </div>
           )}
 
           <div className="relative">
-            <MessageCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+            <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black" />
             <Input
               placeholder="Search debates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+              className="h-10 rounded-none border-2 border-black bg-[#f5efdf] pl-10 text-black placeholder:text-black/50"
               disabled={!!sessionTokenError}
             />
           </div>
@@ -400,49 +399,49 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
             <div className="p-4">
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 bg-slate-700 rounded-lg animate-pulse"></div>
+                  <div key={i} className="h-16 animate-pulse border-2 border-black bg-[#f7b538]"></div>
                 ))}
               </div>
             </div>
           ) : filteredDebates.length === 0 ? (
             <div className="p-4">
-              <p className="text-slate-500 text-sm text-center">
+              <p className="p-4 text-center font-mono text-xs font-bold uppercase">
                 {searchQuery ? "No matching debates found" : "No previous debates"}
               </p>
             </div>
           ) : (
-            <div className="p-2 space-y-1">
+            <div className="space-y-2 p-3">
               {filteredDebates.map((debate) => (
                 <button
                   key={debate.session_id}
                   onClick={() => handleDebateSelect(debate.session_id)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors hover:bg-slate-700/50 ${
+                  className={`w-full border-2 border-transparent p-3 text-left transition-transform hover:-translate-y-0.5 hover:border-black ${
                     selectedDebateId === debate.session_id
-                      ? "bg-slate-700 border-l-2 border-amber-500"
-                      : ""
+                      ? "border-black bg-[#f7b538] shadow-[3px_3px_0_#000]"
+                      : "bg-[#f5efdf]"
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-white text-sm font-medium truncate mb-1">
+                      <h4 className="mb-1 truncate font-serif text-base font-black tracking-[-0.03em]">
                         {debate.topic}
                       </h4>
                       <div className="flex items-center space-x-2 mb-2">
-                        <Users className="h-3 w-3 text-slate-500" />
-                        <p className="text-slate-400 text-xs truncate">
+                        <Users className="h-3 w-3" />
+                        <p className="truncate font-mono text-[10px] font-bold uppercase">
                           {debate.participants.slice(0, 2).join(", ")}
                           {debate.participants.length > 2 && ` +${debate.participants.length - 2}`}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Clock className="h-3 w-3 text-slate-500" />
-                        <p className="text-slate-500 text-xs">
+                        <Clock className="h-3 w-3" />
+                        <p className="font-mono text-[10px] font-bold uppercase">
                           {formatDate(debate.created_at)}
                         </p>
                       </div>
                     </div>
                     {debate.session_id === sessionId && isDebateActive && (
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-1"></div>
+                      <div className="mt-1 size-2 border border-black bg-[#bbdf63]"></div>
                     )}
                   </div>
                 </button>
@@ -451,75 +450,78 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-700">
+        <div className="border-t-2 border-black p-4">
           <Link href="/debate/new">
             <Button
               variant="outline"
               size="sm"
-              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700 bg-transparent"
+              className="w-full"
             >
               <MessageCircle className="h-4 w-4 mr-2" />
               New Debate
             </Button>
           </Link>
         </div>
-      </div>
+      </aside>
 
       {/* Center - Chat Interface */}
-      <div className="flex-1 flex flex-col bg-slate-900">
+      <main className="flex min-w-0 flex-1 flex-col bg-[#f5efdf]">
         {loading || !debateInfo ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-slate-400 text-lg mb-2">Loading debate...</p>
-              <p className="text-slate-500 text-sm">Session ID: {selectedDebateId}</p>
+          <div className="grid flex-1 place-items-center p-6">
+            <div className="border-2 border-black bg-[#fffaf0] p-6 text-center shadow-[5px_5px_0_#000]">
+              <p className="font-serif text-2xl font-black">Loading the record...</p>
+              <p className="mt-2 font-mono text-xs font-bold uppercase">Session: {selectedDebateId}</p>
             </div>
           </div>
         ) : (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-slate-700 bg-slate-800">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="flex -space-x-1">
+            <header className="border-b-2 border-black bg-[#fffaf0] px-5 py-4 sm:px-8">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex -space-x-2">
                     {participants.slice(0, 3).map((p, i) => (
-                      <Avatar key={i} className="h-8 w-8 border-2 border-slate-800">
-                        <AvatarFallback className={`${getCharacterColors(p.colorIndex).bg} text-white text-xs`}>
+                      <Avatar key={i} className="size-9 border-2 border-black">
+                        <AvatarFallback className={`${getCharacterColors(p.colorIndex, p.id === "user").bg} text-black text-xs font-black`}>
                           {p.name.split(" ").map(n => n[0]).join("")}
                         </AvatarFallback>
                       </Avatar>
                     ))}
                   </div>
                   <div>
-                    <h2 className="text-white font-semibold">{debateInfo.topic}</h2>
-                    <p className="text-slate-400 text-sm">
-                      {selectedDebateId === sessionId && isDebateActive ? "Live Debate" : "Historical Debate"} • {participants.length} participants
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em]">The council record</p>
+                    <h2 className="truncate font-serif text-2xl font-black tracking-[-0.05em] sm:text-3xl">{debateInfo.topic}</h2>
+                    <p className="font-mono text-[10px] font-bold uppercase">
+                      {selectedDebateId === sessionId && isDebateActive ? "Live argument in progress" : "Archived argument"} · {participants.length} voices
                     </p>
                   </div>
                 </div>
-                <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white">
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button size="icon-sm" variant="ghost" aria-label="Debate notes">
+                  <PencilLine />
                 </Button>
               </div>
-            </div>
+            </header>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-6">
-                <div className="text-center">
-                  <Badge variant="outline" className="bg-slate-800 text-slate-300 border-slate-600">
+            <div className="flex-1 overflow-y-auto scrollbar">
+              <div className="mx-auto max-w-4xl space-y-6 p-5 sm:p-8">
+                <div className="flex items-center gap-3 py-2">
+                  <span className="h-px flex-1 bg-black" />
+                  <Badge className="bg-[#bbdf63] font-mono uppercase tracking-wide">
                     {selectedDebateId === sessionId && isDebateActive ? "Live Debate" : "Historical Debate"}
                   </Badge>
+                  <span className="h-px flex-1 bg-black" />
                 </div>
 
                 {error && (
-                  <div className="p-3 text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-md">
+                  <div className="border-2 border-black bg-[#ef6a67] p-3 font-mono text-sm font-bold">
                     {error}
                   </div>
                 )}
 
                 {messages.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-slate-400">
+                  <div className="border-2 border-dashed border-black p-8 text-center">
+                    <p className="font-serif text-xl font-black">
                       {selectedDebateId === sessionId && isDebateActive
                         ? "Waiting for the first message..."
                         : "No messages in this debate yet."
@@ -542,35 +544,35 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
                       }
                     };
                     return (
-                      <div key={index} className={`group ${isUser ? 'flex justify-end' : ''}`}>
-                        <div className={`flex items-start space-x-3 max-w-[80%] ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                          <Avatar className="h-8 w-8 flex-shrink-0">
+                      <article key={index} className={`group flex gap-3 ${isUser ? 'justify-end' : ''}`}>
+                        <div className={`flex max-w-[92%] items-start gap-3 sm:max-w-[80%] ${isUser ? 'flex-row-reverse' : ''}`}>
+                          <Avatar className="size-10 shrink-0 border-2 border-black">
                             {isUser ? (
-                              <AvatarFallback className="bg-amber-500 text-slate-900">
+                              <AvatarFallback className="bg-[#f7b538] text-black font-black">
                                 {debateInfo.user_name.charAt(0).toUpperCase()}
                               </AvatarFallback>
                             ) : (
-                              <AvatarFallback className={`${colors.bg} text-white text-xs`}>
+                              <AvatarFallback className={`${colors.bg} text-black text-xs font-black`}>
                                 {msg.sender.split(" ").map(n => n[0]).join("")}
                               </AvatarFallback>
                             )}
                           </Avatar>
 
-                          <div className={`flex-1 min-w-0 ${isUser ? 'text-right' : ''}`}>
-                            <div className={`flex items-center space-x-2 mb-1 ${isUser ? 'flex-row-reverse justify-start' : ''}`}>
-                              <span className="font-medium text-white text-base">{msg.sender}</span>
-                              <span className="text-sm text-slate-500">{formatTimestamp(msg.timestamp)}</span>
+                          <div className={`min-w-0 flex-1 ${isUser ? 'text-right' : ''}`}>
+                            <div className={`mb-1 flex items-center gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
+                              <span className="font-serif text-lg font-black tracking-[-0.03em]">{msg.sender}</span>
+                              <span className="font-mono text-[10px] font-bold uppercase">{formatTimestamp(msg.timestamp)}</span>
                             </div>
-                            <div className={`rounded-2xl px-4 py-3 ${
+                            <div className={`border-2 border-black px-4 py-3 text-left shadow-[4px_4px_0_#000] ${
                               isUser
-                                ? 'bg-amber-500 text-slate-900'
-                                : 'bg-slate-700 text-white hover:bg-slate-700/80'
-                            } transition-colors`}>
+                                ? 'bg-[#f7b538] text-black'
+                                : `${colors.bg} text-black`
+                            }`}>
                               <p className="text-base leading-relaxed">{msg.message}</p>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </article>
                     )
                   })
                 )}
@@ -579,16 +581,16 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
 
             {/* Message Input - Only show for current/active debates */}
             {selectedDebateId === sessionId && (
-              <div className="p-4 border-t border-slate-700 bg-slate-800">
-                <div className="flex items-center space-x-3">
+              <div className="border-t-2 border-black bg-[#fffaf0] p-4 sm:px-8">
+                <div className="mx-auto flex max-w-4xl items-center gap-3">
                   <div className="flex-1">
-                    <div className="bg-slate-700 rounded-2xl p-4">
+                    <div className="border-2 border-black bg-[#f5efdf] p-3 shadow-[4px_4px_0_#000]">
                       <textarea
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
-                        placeholder="Share your perspective..."
-                        className="w-full bg-transparent resize-none focus:outline-none text-white placeholder:text-slate-400 text-base"
-                        rows={3}
+                        placeholder="Put your objection on the record..."
+                        className="w-full resize-none bg-transparent text-base text-black placeholder:text-black/45 focus:outline-none"
+                        rows={2}
                         onKeyPress={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault()
@@ -596,10 +598,11 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
                           }
                         }}
                       />
-                      <div className="flex justify-end mt-2">
+                      <div className="mt-2 flex items-center justify-between border-t-2 border-black pt-2">
+                        <span className="font-mono text-[10px] font-bold uppercase">Enter to submit · Shift+Enter for a new line</span>
                         <Button
                           size="sm"
-                          className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+                          className="bg-[#f7b538]"
                           disabled={!messageInput.trim()}
                           onClick={handleSendMessage}
                         >
@@ -614,78 +617,67 @@ const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) 
 
             {/* Info message for historical debates */}
             {selectedDebateId !== sessionId && (
-              <div className="p-4 border-t border-slate-700 bg-slate-800">
-                <div className="text-center text-slate-400 text-sm">
-                  You're viewing a historical debate. 
+              <div className="border-t-2 border-black bg-[#fffaf0] p-4">
+                <div className="text-center font-mono text-xs font-bold uppercase">
+                  This is an archived debate. The floor is closed.
                 </div>
               </div>
             )}
           </>
         )}
-      </div>
+      </main>
 
       {/* Right Sidebar - Debate Info */}
       {debateInfo && (
-        <div className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col">
-          {/* Current Topic */}
-          <div className="p-4 border-b border-slate-700">
-            <h3 className="text-white font-semibold mb-3">Current Debate</h3>
-            <Card className="bg-slate-700 border-slate-600">
-              <CardContent className="p-4">
-                <h4 className="text-white font-medium text-sm mb-2">{debateInfo.topic}</h4>
-                <p className="text-slate-400 text-xs leading-relaxed">
-                  A council of {participants.length} characters discussing this topic.
-                </p>
-              </CardContent>
-            </Card>
+        <aside className="hidden w-80 shrink-0 flex-col border-l-2 border-black bg-[#fffaf0] xl:flex">
+          <div className="border-b-2 border-black p-5">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em]">Matter before the council</p>
+            <h3 className="mt-2 font-serif text-2xl font-black leading-none tracking-[-0.05em]">{debateInfo.topic}</h3>
+            <p className="mt-4 border-l-2 border-black pl-3 text-sm font-medium leading-relaxed">
+              {participants.length} voices are on the record. Read closely; interruptions count.
+            </p>
           </div>
 
-          {/* Participants */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">Participants</h3>
-              <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white">
-                <UserPlus className="h-4 w-4" />
-              </Button>
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-serif text-2xl font-black tracking-[-0.04em]">The roster</h3>
+              <Badge className="bg-[#ff9dc7] font-mono">{participants.length}</Badge>
             </div>
             <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-slate-700/50">
-                <div className="w-3 h-3 rounded-full bg-amber-500" />
+              <div className="flex items-center gap-3 border-2 border-black bg-[#f7b538] p-3 shadow-[3px_3px_0_#000]">
+                <div className="size-3 border border-black bg-[#f7b538]" />
                 <div className="flex-1">
-                  <p className="font-medium text-white text-sm">{debateInfo.user_name}</p>
-                  <p className="text-xs text-slate-400">Council Member</p>
+                  <p className="font-serif text-lg font-black">{debateInfo.user_name}</p>
+                  <p className="font-mono text-[10px] font-bold uppercase">Council member</p>
                 </div>
               </div>
 
               {participants.slice(1).map((participant, i) => {
                 const colors = getCharacterColors(participant.colorIndex)
                 return (
-                  <div key={i} className="flex items-center space-x-3 p-3 rounded-lg bg-slate-700/50">
-                    <div className="relative">
-                      <div className={`w-3 h-3 rounded-full ${colors.indicator}`} />
-                    </div>
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className={`${colors.bg} text-white text-xs`}>
+                  <div key={i} className="flex items-center gap-3 border-2 border-black bg-[#f5efdf] p-3">
+                    <Avatar className="size-9 border-2 border-black">
+                      <AvatarFallback className={`${colors.bg} text-black text-xs font-black`}>
                         {participant.name.split(" ").map(n => n[0]).join("")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <h4 className="text-white text-sm font-medium">{participant.name}</h4>
-                      <p className="text-slate-400 text-xs">{participant.role || "Debater"}</p>
+                      <h4 className="font-serif text-lg font-black leading-none">{participant.name}</h4>
+                      <p className="mt-1 font-mono text-[10px] font-bold uppercase">{participant.role || "Debater"}</p>
                     </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className={`size-3 border border-black ${colors.indicator}`} />
                   </div>
                 )
               })}
             </div>
           </div>
 
-          <div className="p-4">
-            <p className="text-slate-500 text-sm">
-              Status: {selectedDebateId === sessionId && isDebateActive ? "Active" : "Historical"}
+          <div className="border-t-2 border-black bg-[#bbdf63] p-4">
+            <p className="font-mono text-xs font-bold uppercase">
+              Floor status: {selectedDebateId === sessionId && isDebateActive ? "Open" : "Archived"}
             </p>
           </div>
-        </div>
+        </aside>
       )}
     </div>
   )

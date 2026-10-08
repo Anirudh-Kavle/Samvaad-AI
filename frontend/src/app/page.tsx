@@ -1,271 +1,109 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import Image from "next/image"
+import { ArrowDownRight, ArrowRight, Mic2, Sparkles } from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
-import { Users, MessageCircle, Lightbulb, BookOpen, Sparkles, ArrowRight } from "lucide-react"
-import InfiniteScroll from "@/components/InfiniteScroll"
-import Link from "next/link";
-import DarkVeil from "@/components/DarkVeil";
+import { Bubble, BubbleContent } from "@/components/ui/bubble"
+import { Button } from "@/components/ui/button"
+
+const speakers = [
+  { name: "Socrates", role: "The questioner", image: "/socrates.png", accent: "bg-[#f7b538]", tape: "-rotate-2" },
+  { name: "Einstein", role: "The contrarian", image: "/einstein-scientist.png", accent: "bg-[#78c7ff]", tape: "rotate-2" },
+  { name: "Muhammad Ali", role: "The challenger", image: "/ali.png", accent: "bg-[#ef6a67]", tape: "-rotate-1" },
+  { name: "Gordon Ramsay", role: "The instigator", image: "/gordon-ramsay-chef.png", accent: "bg-[#bbdf63]", tape: "rotate-1" },
+  { name: "Light Yagami", role: "The strategist", image: "/light.png", accent: "bg-[#c4a6ff]", tape: "-rotate-2" },
+  { name: "Vincent van Gogh", role: "The wild card", image: "/vangogh.png", accent: "bg-[#ff9dc7]", tape: "rotate-2" },
+]
+
+const principles = [
+  ["01", "PICK A PANEL", "Cast two to six minds from history, fiction, or wherever the good arguments live."],
+  ["02", "MAKE A CLAIM", "Bring the question nobody in your group chat can settle."],
+  ["03", "ENTER THE RECORD", "Interrupt, challenge, and steer the debate while every voice stays in character."],
+]
 
 export default function LandingPage() {
-  const characters = [
-    { name: "Socrates", era: "Philosophy", image: "/socrates.png" },
-    { name: "Einstein", era: "Modern Physics", image: "/einstein-scientist.png" },
-    { name: "Muhammad Ali", era: "Sports", image: "/ali.png" },
-    { name: "Batman", era: "Comics", image: "/batman-superhero.png" },
-    { name: "Gordon Ramsay", era: "Culinary", image: "/gordon-ramsay-chef.png" },
-    { name: "Light Yagami", era: "Anime", image: "/light.png" },
-    { name: "Winston Churchill", era: "Politics", image: "/churchill-leader.png" },
-    { name: "Mahatma Gandhi", era: "Activism", image: "/gandhi-peaceful-leader.png" },
-    { name: "Peter Griffin", era: "Animation", image: "/peter.png" },
-    { name: "Nikola Tesla", era: "Innovation", image: "/tesla.png" },
-    { name: "Steve Jobs", era: "Technology", image: "/jobs.png" },
-    { name: "Vincent van Gogh", era: "Art", image: "/vangogh.png" },
-  ]
-
-  // Create infinite scroll items from characters
-  const infiniteScrollItems = characters.map((character, index) => ({
-    content: (
-      <div className="w-full h-full flex flex-col items-center justify-center text-center p-2">
-        <img
-          src={character.image || "/placeholder.svg"}
-          alt={character.name}
-          className="w-24 h-24 rounded-full mb-4 object-cover border-3 border-slate-500 shadow-lg"
-        />
-        <h3 className="font-bold text-white text-lg mb-2 leading-tight">{character.name}</h3>
-        <p className="text-slate-300 text-sm font-medium">{character.era}</p>
-      </div>
-    )
-  }))
-
-  const useCases = [
-    {
-      icon: <BookOpen className="h-6 w-6" />,
-      title: "Educational Exploration",
-      description: "Philosophy student debates justice theories with Kant, Mill, and Rawls",
-      example: "Gain multiple perspectives for your academic papers",
-    },
-    {
-      icon: <Lightbulb className="h-6 w-6" />,
-      title: "Personal Reflection",
-      description: "Process life decisions with Marcus Aurelius, Alexander the Great, and Eikichi Onizuka",
-      example: "Explore different frameworks for handling failure and building resilience",
-    },
-    {
-      icon: <Sparkles className="h-6 w-6" />,
-      title: "Roast Sessions & Comebacks",
-      description: "Get roasted by Gordon Ramsay, Deadpool, and The Joker, then learn comebacks from Tyrion Lannister",
-      example: "Build thicker skin through legendary insult masters and witty retorts",
-    },
-    {
-      icon: <MessageCircle className="h-6 w-6" />,
-      title: "Reality Check Councils",
-      description: "Present your dating problems to Cleopatra, Barney Stinson, and Jane Austen",
-      example: "Classic wisdom, modern perspective, and literary brilliance combined",
-    },
-  ]
+  const goTo = (path: string) => window.location.assign(path)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Navigation */}
-      <nav className="border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
-                <Users className="h-5 w-5 text-slate-900" />
-              </div>
-              <span className="text-xl font-bold text-white">Samvaad.AI</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="outline"
-                className="border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-slate-900 bg-transparent"
-                onClick={() => (window.location.href = "/debate")}
-              >
-                View Demo
-              </Button>
-            </div>
+    <main className="min-h-screen overflow-hidden bg-[#f5efdf] text-black selection:bg-[#f7b538]">
+      <nav className="sticky top-0 z-50 border-b-2 border-black bg-[#f5efdf]/95 px-4 py-3 backdrop-blur sm:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <a href="#top" className="flex items-center gap-3 font-black tracking-[-0.08em]" aria-label="Samvaad AI home">
+            <span className="grid size-9 place-items-center border-2 border-black bg-[#f7b538] text-xl shadow-[3px_3px_0_#000]">S</span>
+            <span className="text-xl uppercase sm:text-2xl">Samvaad.ai</span>
+          </a>
+          <div className="flex items-center gap-3">
+            <span className="hidden font-mono text-xs uppercase sm:inline">Issue no. 01</span>
+            <Button variant="neutral" size="sm" onClick={() => goTo("/debate")}>Read a debate <ArrowDownRight /></Button>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative isolate overflow-hidden flex items-center h-[calc(100vh-4rem)] px-4 sm:px-6 lg:px-8">
-        <div className="absolute inset-0 w-full h-full -z-10">
-          <DarkVeil
-            speed={1.5}
-            noiseIntensity={0.03}
-            warpAmount={0.3}
-            hueShift={0.0}
-          />
-        </div>
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center">
-            <Badge className="mb-8 bg-amber-400/10 text-amber-400 border-amber-400/20">
-              Character Debate Simulator
-            </Badge>
-            <h1 className="text-4xl sm:text-6xl font-bold text-white mb-20 leading-tight">
-              Debates That Shouldn't Exist... 
-              <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
-                {" "}
-                Until Now
-              </span>
+      <section id="top" className="relative border-b-2 border-black px-4 py-12 sm:px-8 sm:py-20">
+        <div className="pointer-events-none absolute -left-10 top-12 hidden size-36 rotate-12 border-2 border-black bg-[#ff9dc7] lg:block" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.05fr_.95fr]">
+          <div>
+            <Badge className="mb-7 bg-[#bbdf63] text-sm uppercase tracking-wide">A debate magazine for impossible conversations</Badge>
+            <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.25em]">The council is in session</p>
+            <h1 className="max-w-4xl font-serif text-6xl font-black leading-[.82] tracking-[-0.07em] sm:text-8xl lg:text-[8.5rem]">
+              BIG MINDS.<br />
+              <span className="relative inline-block">LOUD TAKES.<svg aria-hidden="true" className="absolute -bottom-5 left-0 w-full" viewBox="0 0 400 25" fill="none"><path d="M5 18C78 5 187 30 395 6" stroke="currentColor" strokeWidth="4" /></svg></span>
             </h1>
-            <p className="text-xl text-slate-300 mb-20 max-w-3xl mx-auto leading-relaxed">
-              From Socrates to Snoop Dogg, Shakespeare to Shrek, Samvaad.AI throws any 2–6 characters into a live debate, keeps their authentic voices, and lets you join the chaos yourself.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/debate/new">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 hover:from-amber-500 hover:to-amber-700 text-lg px-8 py-3"
-              >
-                Start Your First Debate
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:bg-slate-800 text-lg px-8 py-3 bg-transparent"
-                onClick={() => (window.location.href = "/debate")}
-              >
-                Watch Demo
-              </Button>
+            <p className="mt-10 max-w-xl text-lg font-medium leading-relaxed sm:text-xl">Assemble a council of characters, throw them a question, and see who can defend their point when the room gets interesting.</p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Button size="lg" onClick={() => goTo("/debate/new")}>Start a council <ArrowRight /></Button>
+              <Button size="lg" variant="neutral" onClick={() => goTo("/debate")}>Watch the chaos</Button>
             </div>
+            <p className="mt-6 -rotate-1 font-mono text-sm font-bold">↳ No polite panels. No canned answers.</p>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-lg pb-7 pr-5 lg:pr-0">
+            <div className="rotate-1 border-2 border-black bg-[#78c7ff] p-4 shadow-[8px_8px_0_#000]">
+              <div className="flex items-center justify-between border-b-2 border-black pb-3 font-mono text-xs font-bold uppercase"><span>Live from the council floor</span><span>● recording</span></div>
+              <div className="mt-5 grid grid-cols-[64px_1fr] gap-3">
+                <Image src="/socrates.png" alt="Socrates" width={128} height={128} className="size-16 border-2 border-black object-cover" />
+                <Bubble variant="secondary" className="max-w-none"><BubbleContent className="bg-[#fffaf0] text-base font-semibold">Before we decide whether AI should lead, should we not first ask what a leader is?</BubbleContent></Bubble>
+              </div>
+              <div className="mt-5 grid grid-cols-[1fr_64px] gap-3">
+                <Bubble align="end" className="max-w-none"><BubbleContent className="bg-[#f7b538] text-right text-base font-semibold">Good. But can it survive the follow-up questions?</BubbleContent></Bubble>
+                <Image src="/einstein-scientist.png" alt="Einstein" width={128} height={128} className="size-16 border-2 border-black object-cover" />
+              </div>
+              <div className="mt-5 flex items-center justify-between border-t-2 border-black pt-3 font-mono text-xs font-bold uppercase"><span>2 speakers online</span><span>12:04 elapsed</span></div>
+            </div>
+            <span className="absolute -bottom-2 left-2 rotate-[-8deg] border-2 border-black bg-[#ff9dc7] px-3 py-2 font-mono text-xs font-bold shadow-[3px_3px_0_#000]">HOT MIC ON</span>
           </div>
         </div>
       </section>
 
-      {/* Character Showcase with Infinite Scroll */}
-      <section className="pt-24 pb-0 px-4 sm:px-6 lg:px-8 bg-slate-900/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Choose Your Council</h2>
-            <p className="text-slate-300 text-lg">Pick 2–6 personalities from history, fiction, or pop culture. Any era. Any universe.</p>
-          </div>
-          
-          {/* Infinite Scroll Container */}
-          <div className="flex justify-center">
-            <div className="w-full max-w-7xl h-[500px] relative">
-              <InfiniteScroll
-                items={infiniteScrollItems}
-                width="100%"
-                itemMinHeight={280}
-                isTilted={true}
-                tiltDirection="left"
-                autoplay={true}
-                autoplaySpeed={0.5}
-                autoplayDirection="left"
-                pauseOnHover={true}
-                negativeMargin="-1.5em"
-                maxHeight="100%"
-              />
-            </div>
-          </div>
-          
-{/* 
-          <div className="text-center mt-8">
-            <p className="text-slate-400">+ Thousands more characters available</p>
-          </div> */}
-        </div>
-      </section>
+      <section className="border-b-2 border-black bg-black px-4 py-3 text-[#f5efdf] sm:px-8"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4 overflow-hidden font-mono text-sm font-bold uppercase tracking-wide"><span className="whitespace-nowrap">Socrates v. Batman</span><span className="hidden sm:inline">•</span><span className="whitespace-nowrap">Should power have rules?</span><span className="hidden sm:inline">•</span><span className="whitespace-nowrap">The floor is open</span></div></section>
 
-      {/* How It Works */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">How It Works</h2>
-            <p className="text-slate-300 text-lg">Three steps. Infinite possibilities.  </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-slate-900">1</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Select Characters</h3>
-              <p className="text-slate-300">From Gandhi to Gandalf, choose 2–6 personalities</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-slate-900">2</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Set the Topic</h3>
-              <p className="text-slate-300">Ask a big question, spark a feud, or throw in absurd hypotheticals</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-slate-900">3</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Join the Debate</h3>
-              <p className="text-slate-300">You're not a spectator. You're a council member</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Use Cases */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-slate-800/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Endless Possibilities</h2>
-            <p className="text-slate-300 text-lg">Serious, silly, or somewhere in between.</p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8">
-            {useCases.map((useCase, index) => (
-              <Card key={index} className="bg-slate-700/50 border-slate-600 hover:bg-slate-700/70 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
-                      {useCase.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-white mb-2">{useCase.title}</h3>
-                      <p className="text-slate-300 mb-2">{useCase.description}</p>
-                      <p className="text-amber-400 text-sm italic">{useCase.example}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+      <section className="border-b-2 border-black px-4 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-5"><div><p className="font-mono text-xs font-bold uppercase tracking-[0.25em]">Cast the conversation</p><h2 className="mt-2 font-serif text-5xl font-black tracking-[-0.06em] sm:text-7xl">PICK YOUR<br />PROBLEM PEOPLE.</h2></div><p className="max-w-xs border-l-2 border-black pl-4 text-sm font-medium">Each voice gets its own color. Pick the people most likely to make your question worse—in the best way.</p></div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {speakers.map((speaker) => (
+              <button key={speaker.name} type="button" onClick={() => goTo("/debate/new")} className={`group relative flex min-h-48 items-end overflow-hidden border-2 border-black bg-[#fffaf0] text-left shadow-[5px_5px_0_#000] transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black ${speaker.tape}`}>
+                <span className={`absolute left-1/2 top-3 h-6 w-24 -translate-x-1/2 -rotate-2 border border-black/20 opacity-80 ${speaker.accent}`} />
+                <Image src={speaker.image} alt="" width={320} height={320} className="absolute right-0 top-0 size-48 object-cover object-top grayscale transition duration-300 group-hover:grayscale-0" />
+                <span className={`absolute inset-x-0 bottom-0 h-20 ${speaker.accent}`} />
+                <span className="relative p-4"><strong className="block font-serif text-3xl font-black leading-none tracking-[-0.06em]">{speaker.name}</strong><small className="mt-1 block font-mono text-xs font-bold uppercase">{speaker.role} · click to cast</small></span>
+              </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Example Debate Preview */}
-      {/* Background Image Section */}
+      <section className="border-b-2 border-black bg-[#bbdf63] px-4 py-16 sm:px-8 sm:py-24"><div className="mx-auto max-w-7xl"><div className="mb-10 max-w-3xl"><p className="font-mono text-xs font-bold uppercase tracking-[0.25em]">No moderator required</p><h2 className="mt-2 font-serif text-5xl font-black tracking-[-0.06em] sm:text-7xl">HOW THE FIGHT GETS STARTED.</h2></div><div className="grid gap-5 md:grid-cols-3">{principles.map(([number, title, copy]) => <article key={number} className="border-2 border-black bg-[#fffaf0] p-6 shadow-[6px_6px_0_#000]"><span className="font-mono text-5xl font-black">{number}</span><h3 className="mt-12 font-serif text-3xl font-black tracking-[-0.04em]">{title}</h3><p className="mt-3 font-medium leading-relaxed">{copy}</p></article>)}</div></div></section>
 
-      <section className="relative w-full h-[700px] bg-[#1A2539] flex items-center justify-center">
-        <img
-          src="/for_esteemed_patron.png"
-          alt="Last Supper with custom characters"
-          className="max-w-full max-h-full object-contain"
-          style={{ opacity: 0.9 }} // tweak if you want it more/less transparent
-        />
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#1A2539] isolate relative z-0">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">Ready to Join the Greatest Conversations Ever?</h2>
-          <p className="text-xl text-slate-300 mb-8">
-            Whether you're exploring philosophy, testing ideas, or just curious about how Einstein would react to modern
-            memes—your council awaits.
-          </p>
-          <Link href="/debate/new">
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 hover:from-amber-500 hover:to-amber-700 text-xl px-12 py-4"
-              // onClick={() => (window.location.href = "/debate")}
-            >
-              Create Your First Council
-              <ArrowRight className="ml-2 h-6 w-6" />
-            </Button>
-          </Link>
+      <section className="border-b-2 border-black px-4 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.8fr_1.2fr]">
+          <div><Badge className="bg-[#ff9dc7] text-sm uppercase tracking-wide">From the transcripts</Badge><h2 className="mt-6 font-serif text-5xl font-black leading-[.9] tracking-[-0.06em] sm:text-7xl">THE GOOD PART IS THE INTERRUPTION.</h2><p className="mt-6 max-w-md text-lg font-medium leading-relaxed">Not a chatbot with a costume. A live back-and-forth where every participant can object, redirect, or steal the room.</p></div>
+          <div className="border-2 border-black bg-[#fffaf0] p-5 shadow-[7px_7px_0_#000] sm:p-8"><div className="mb-6 flex items-center justify-between border-b-2 border-black pb-3 font-mono text-xs font-bold uppercase"><span>Transcript: 0007</span><span>Topic: ambition</span></div><div className="space-y-5"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center border-2 border-black bg-[#c4a6ff] font-black">L</span><div><p className="mb-1 font-mono text-xs font-bold uppercase">Light Yagami</p><Bubble variant="secondary"><BubbleContent className="bg-[#c4a6ff] text-base font-semibold">If you have the ability to change a broken world, refusing to act is also a choice.</BubbleContent></Bubble></div></div><div className="flex items-start justify-end gap-3"><div className="text-right"><p className="mb-1 font-mono text-xs font-bold uppercase">Vincent van Gogh</p><Bubble align="end"><BubbleContent className="bg-[#ff9dc7] text-right text-base font-semibold">And if your perfect world has no room for the strange, what exactly have you saved?</BubbleContent></Bubble></div><span className="grid size-10 shrink-0 place-items-center border-2 border-black bg-[#ff9dc7] font-black">V</span></div></div><p className="mt-8 rotate-1 text-right font-mono text-sm font-bold">← objection noted</p></div>
         </div>
       </section>
-    </div>
+
+      <section className="bg-black px-4 py-20 text-[#f5efdf] sm:px-8 sm:py-28"><div className="mx-auto max-w-5xl text-center"><Sparkles className="mx-auto mb-6 size-9 text-[#f7b538]" /><p className="font-mono text-xs font-bold uppercase tracking-[0.25em]">Your question deserves witnesses</p><h2 className="mt-5 font-serif text-5xl font-black leading-[.85] tracking-[-0.06em] sm:text-8xl">OPEN THE FLOOR.</h2><p className="mx-auto mt-7 max-w-xl text-lg font-medium text-[#f5efdf]/80">Build a council and make somebody defend their position.</p><Button size="lg" className="mt-9 bg-[#f7b538]" onClick={() => goTo("/debate/new")}>Start your first debate <Mic2 /></Button></div></section>
+    </main>
   )
 }
